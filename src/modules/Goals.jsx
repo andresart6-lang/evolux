@@ -1,0 +1,365 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Minus, Pencil, Trophy, X, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import ColorPicker from '../components/ColorPicker';
+
+// Initial Mock Data
+const INITIAL_GOALS = [
+    {
+        id: 1,
+        title: 'Fondo de Emergencia',
+        current: 2500000,
+        target: 10000000,
+        color: '#c084fc', // standard hex
+        history: [{ id: 1, date: '2023-10-15', amount: 500000, type: 'add' }]
+    },
+    {
+        id: 2,
+        title: 'Viaje a Japón',
+        current: 1200000,
+        target: 15000000,
+        color: '#4ade80',
+        history: [{ id: 1, date: '2023-11-01', amount: 200000, type: 'add' }]
+    },
+];
+
+const formatMoney = (amount) => {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
+};
+
+export default function Goals() {
+    const [goals, setGoals] = useState(INITIAL_GOALS);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingGoal, setEditingGoal] = useState(null); // Objects if editing, null if creating
+
+    // Modal Form State
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalTarget, setModalTarget] = useState('');
+    const [modalAmount, setModalAmount] = useState(''); // Initial amount for new goals
+    const [modalColor, setModalColor] = useState('#4ade80');
+    const [showMaxAlert, setShowMaxAlert] = useState(false);
+
+    // Handlers
+    const openModal = (goal = null) => {
+        if (!goal && goals.length >= 6) {
+            setShowMaxAlert(true);
+            setTimeout(() => setShowMaxAlert(false), 3000);
+            return;
+        }
+
+        setEditingGoal(goal);
+        if (goal) {
+            setModalTitle(goal.title);
+            setModalTarget(goal.target.toString());
+            setModalAmount(goal.current.toString());
+            setModalColor(goal.color);
+        } else {
+            setModalTitle('');
+            setModalTarget('');
+            setModalAmount(''); // Start empty for new goal
+            setModalColor('#4ade80');
+        }
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingGoal(null);
+    };
+
+    const handleSaveGoal = () => {
+        if (!modalTitle || !modalTarget) return;
+
+        const targetVal = parseInt(modalTarget.replace(/\D/g, '')) || 0;
+        const currentVal = parseInt(modalAmount.replace(/\D/g, '')) || 0;
+
+        if (editingGoal) {
+            // Update
+            setGoals(goals.map(g => g.id === editingGoal.id ? {
+                ...g,
+                title: modalTitle,
+                target: targetVal,
+                current: currentVal, // Allow manual override via edit
+                color: modalColor
+            } : g));
+        } else {
+            // Create
+            const newGoal = {
+                id: Date.now(),
+                title: modalTitle,
+                target: targetVal,
+                current: currentVal,
+                color: modalColor,
+                history: currentVal > 0 ? [{ id: Date.now(), date: new Date().toLocaleDateString(), amount: currentVal, type: 'add' }] : []
+            };
+            setGoals([newGoal, ...goals]); // Add to top
+        }
+        closeModal();
+    };
+
+    const handleTransaction = (id, amount, type) => {
+        setGoals(goals.map(g => {
+            if (g.id === id) {
+                const newCurrent = Math.max(0, type === 'add' ? g.current + amount : g.current - amount);
+                const newHistory = [
+                    { id: Date.now(), date: new Date().toLocaleDateString(), amount: amount, type },
+                    ...g.history
+                ];
+                return { ...g, current: newCurrent, history: newHistory };
+            }
+            return g;
+        }));
+    };
+
+    return (
+        <div className="space-y-8 animate-fade-in pb-20 relative">
+
+            {/* Alert Toast */}
+            <AnimatePresence>
+                {showMaxAlert && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20, x: '-50%' }}
+                        animate={{ opacity: 1, y: 0, x: '-50%' }}
+                        exit={{ opacity: 0, y: -20, x: '-50%' }}
+                        className="fixed top-8 left-1/2 z-[100] bg-red-500 text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 font-bold"
+                    >
+                        <AlertCircle size={20} />
+                        ¡Máximo 6 metas permitidas!
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl font-bold text-white tracking-tight">Mis Metas</h2>
+                    <p className="text-text-muted text-sm mt-1">Sigue tu progreso y alcanza tus metas de ahorro.</p>
+                </div>
+                <button
+                    onClick={() => openModal()}
+                    className="btn-primary"
+                >
+                    <Plus size={18} /> Crear Meta
+                </button>
+            </div>
+
+            {/* Goals List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                {goals.map(goal => (
+                    <GoalCard
+                        key={goal.id}
+                        goal={goal}
+                        onEdit={() => openModal(goal)}
+                        onTransaction={handleTransaction}
+                    />
+                ))}
+            </div>
+
+            {/* Modal */}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="border rounded-3xl w-full max-w-md p-6 shadow-[0_25px_60px_rgba(0,0,0,0.3)] relative overflow-hidden backdrop-blur-xl"
+                            style={{ backgroundColor: 'var(--bg-card-solid)', borderColor: 'var(--border-card)' }}
+                        >
+                            {/* Close Button */}
+                            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white rounded-full hover:bg-white/10 transition-colors">
+                                <X size={20} />
+                            </button>
+
+                            <h3 className="text-2xl font-bold text-white mb-6">{editingGoal ? 'Editar Meta' : 'Nueva Meta'}</h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Nombre de la Meta</label>
+                                    <input
+                                        type="text"
+                                        value={modalTitle}
+                                        onChange={(e) => setModalTitle(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-acid focus:outline-none placeholder-white/20"
+                                        placeholder="Ej. Viaje a Bali"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Meta Total</label>
+                                        <input
+                                            type="text"
+                                            value={Number(modalTarget).toLocaleString('es-CO')}
+                                            onChange={(e) => setModalTarget(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-acid focus:outline-none text-right font-mono"
+                                            placeholder="$0"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Monto Inicial</label>
+                                        <input
+                                            type="text"
+                                            value={Number(modalAmount).toLocaleString('es-CO')}
+                                            onChange={(e) => setModalAmount(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-acid focus:outline-none text-right font-mono"
+                                            placeholder="$0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs uppercase font-bold text-text-muted mb-2 block">Color Identificativo</label>
+                                    <div className="p-4 bg-black/50 border border-white/5 rounded-xl flex justify-center">
+                                        <ColorPicker selectedColor={modalColor} onChange={setModalColor} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 flex gap-3">
+                                <button onClick={closeModal} className="flex-1 py-3 rounded-xl bg-white/5 text-white font-bold hover:bg-white/10 transition-colors">
+                                    Cancelar
+                                </button>
+                                <button onClick={handleSaveGoal} className="flex-1 py-3 rounded-xl bg-acid text-black font-bold hover:bg-white transition-colors shadow-[0_0_15px_rgba(190,242,100,0.2)]">
+                                    {editingGoal ? 'Actualizar' : 'Crear Meta'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+// Draggable Goal Card
+const GoalCard = ({ goal, onEdit, onTransaction }) => {
+    const [amountInput, setAmountInput] = useState('');
+    const [showHistory, setShowHistory] = useState(false);
+
+    // Calculate percentage
+    const progress = Math.min(100, (goal.current / goal.target) * 100);
+
+    // Style from hex color
+    const customStyle = {
+        '--goal-color': goal.color,
+        borderColor: `${goal.color}33`, // 20% opacity
+    };
+
+    const handleAction = (type) => {
+        const val = parseInt(amountInput.replace(/\D/g, '')) || 0;
+        if (val <= 0) return;
+        onTransaction(goal.id, val, type);
+        setAmountInput('');
+    };
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="relative group w-full"
+        >
+            <div className="glass-card p-6 border transition-all hover:bg-white/[0.02]" style={customStyle}>
+
+                {/* Edit Action */}
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button onClick={onEdit} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors" title="Editar">
+                        <Pencil size={14} />
+                    </button>
+                </div>
+
+                {/* Header */}
+                <div className="flex items-start gap-4 mb-2">
+                    <div
+                        className="p-3 rounded-2xl shadow-lg"
+                        style={{ backgroundColor: `${goal.color}20`, color: goal.color }}
+                    >
+                        <Trophy size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-white leading-tight">{goal.title}</h3>
+                        <p className="text-sm text-text-muted mt-1 font-mono">{formatMoney(goal.target)}</p>
+                    </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-4 mb-2 h-4 w-full bg-black/40 rounded-full border border-white/5 relative">
+                    <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className="h-full relative overflow-hidden rounded-full"
+                        style={{
+                            background: `linear-gradient(90deg, ${goal.color}22 0%, ${goal.color} 100%)`,
+                            boxShadow: `0 0 15px 1px ${goal.color}80`
+                        }}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full -skew-x-12 opacity-50" />
+                    </motion.div>
+                </div>
+
+                {/* Percentage & Current - MOVED DOWN to give space for edit pencil */}
+                <div className="flex justify-between items-center mb-6 px-1">
+                    <span className="text-white font-mono font-bold text-lg">{formatMoney(goal.current)}</span>
+                    <span className="text-2xl font-bold" style={{ color: goal.color }}>{Math.round(progress)}%</span>
+                </div>
+
+                {/* Transaction Input */}
+                <div className="flex bg-black/30 rounded-xl p-1 border border-white/5 relative z-20">
+                    <button onClick={() => handleAction('sub')} className="p-3 hover:bg-red-500/20 text-text-muted hover:text-red-400 rounded-lg transition-colors">
+                        <Minus size={18} />
+                    </button>
+                    <input
+                        type="text"
+                        placeholder="Monto..."
+                        value={amountInput}
+                        onChange={(e) => setAmountInput(e.target.value)}
+                        className="flex-1 bg-transparent text-center text-white font-mono focus:outline-none placeholder-white/20 text-sm"
+                    />
+                    <button onClick={() => handleAction('add')} className="p-3 hover:bg-green-500/20 text-text-muted hover:text-green-400 rounded-lg transition-colors">
+                        <Plus size={18} />
+                    </button>
+                </div>
+
+                {/* Transaction History Dropdown */}
+                <div className="mt-4 border-t border-white/5 pt-2">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="w-full flex justify-between items-center text-xs text-text-muted hover:text-white py-1 uppercase font-bold tracking-wider group/hist"
+                    >
+                        <span>Historial</span>
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                        {showHistory && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="space-y-1 mt-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                                    {goal.history && goal.history.length > 0 ? (
+                                        goal.history.map((h, i) => (
+                                            <div key={i} className="flex justify-between items-center text-[10px] font-mono p-1.5 rounded hover:bg-white/5 transition-colors">
+                                                <span className="text-white/40">{h.date}</span>
+                                                <span className={h.type === 'add' ? 'text-green-400' : 'text-red-400'}>
+                                                    {h.type === 'add' ? '+' : '-'}{formatMoney(h.amount)}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-xs text-text-muted italic py-2">Sin movimientos</p>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+            </div>
+        </motion.div>
+    );
+};

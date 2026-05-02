@@ -1,0 +1,301 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #bef264;
+  }
+
+  /* ── Dark Theme (default) ── */
+  .dark, :root:not(.light) {
+    --bg-body: #000000;
+    --bg-surface: #121212;
+    --bg-card: rgba(24, 24, 27, 0.6);
+    --bg-card-solid: #18181b;
+    --bg-input: rgba(255, 255, 255, 0.05);
+    --border-card: rgba(255, 255, 255, 0.05);
+    --border-hover: rgba(255, 255, 255, 0.2);
+    --text-primary: #ffffff;
+    --text-muted: #9ca3af;
+    --text-inverted: #000000;
+    --glow-white: rgba(255, 255, 255, 0.1);
+    --glow-white-strong: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+    --scrollbar-hover: rgba(255, 255, 255, 0.2);
+    --noise-opacity: 0.2;
+    --overlay-bg: rgba(0, 0, 0, 0.6);
+    --chart-grid: rgba(255, 255, 255, 0.03);
+    --chart-axis: #52525b;
+    --chart-tick: #71717a;
+  }
+
+  /* ── Light Theme ── */
+  .light {
+    --bg-body: #f5f5f7;
+    --bg-surface: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.7);
+    --bg-card-solid: #ffffff;
+    --bg-input: rgba(0, 0, 0, 0.04);
+    --border-card: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.15);
+    --text-primary: #1a1a2e;
+    --text-muted: #6b7280;
+    --text-inverted: #ffffff;
+    --glow-white: rgba(0, 0, 0, 0.04);
+    --glow-white-strong: rgba(0, 0, 0, 0.02);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+    --scrollbar-hover: rgba(0, 0, 0, 0.2);
+    --noise-opacity: 0.08;
+    --overlay-bg: rgba(0, 0, 0, 0.3);
+    --chart-grid: rgba(0, 0, 0, 0.05);
+    --chart-axis: #a1a1aa;
+    --chart-tick: #71717a;
+  }
+
+  body {
+    background-color: var(--bg-body);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+}
+
+/* ── Glass Card (Theme-aware) ── */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-card);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s ease, background 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 40px var(--glow-white), 0 0 20px var(--glow-white-strong);
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.glass-card:hover::after {
+  opacity: 1;
+}
+
+/* Success State */
+.glass-card-success {
+  border-color: rgba(190, 242, 100, 0.5) !important;
+  box-shadow: 0 0 20px rgba(190, 242, 100, 0.1);
+}
+
+.glass-card-success::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 40px rgba(190, 242, 100, 0.2), 0 0 20px rgba(190, 242, 100, 0.1);
+  opacity: 1 !important;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Specific Colored Glows on Hover */
+.glass-card-hover-green:hover {
+  border-color: rgba(190, 242, 100, 0.4);
+}
+
+.glass-card-hover-green:hover::after {
+  box-shadow: inset 0 0 40px rgba(190, 242, 100, 0.15), 0 0 20px rgba(190, 242, 100, 0.1);
+  opacity: 1;
+}
+
+.glass-card-hover-red:hover {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.glass-card-hover-red:hover::after {
+  box-shadow: inset 0 0 40px rgba(248, 113, 113, 0.15), 0 0 20px rgba(248, 113, 113, 0.1);
+  opacity: 1;
+}
+
+.glass-card-hover-blue:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.glass-card-hover-blue:hover::after {
+  box-shadow: inset 0 0 40px rgba(96, 165, 250, 0.15), 0 0 20px rgba(96, 165, 250, 0.1);
+  opacity: 1;
+}
+
+/* Noise Texture */
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* ── Light theme overrides for specific elements ── */
+.light .text-white { color: var(--text-primary) !important; }
+.light .text-white\/30 { color: rgba(26, 26, 46, 0.3) !important; }
+.light .text-white\/40 { color: rgba(26, 26, 46, 0.4) !important; }
+.light .text-white\/50 { color: rgba(26, 26, 46, 0.5) !important; }
+.light .text-white\/60 { color: rgba(26, 26, 46, 0.6) !important; }
+.light .text-white\/70 { color: rgba(26, 26, 46, 0.7) !important; }
+.light .text-white\/80 { color: rgba(26, 26, 46, 0.8) !important; }
+.light .text-white\/\[0\.03\] { color: rgba(26, 26, 46, 0.03) !important; }
+.light .text-text-muted { color: var(--text-muted) !important; }
+
+/* Keep white text white in light mode explicitly */
+.light .keep-white,
+.light .keep-white .text-white { color: #ffffff !important; }
+.light .keep-white .text-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
+.light .keep-white .text-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
+
+/* Backgrounds */
+.light .bg-white\/5 { background-color: rgba(0, 0, 0, 0.03) !important; }
+.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.05) !important; }
+.light .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.02) !important; }
+.light .bg-white\/\[0\.04\] { background-color: rgba(0, 0, 0, 0.03) !important; }
+.light .bg-white\/\[0\.02\] { background-color: rgba(0, 0, 0, 0.015) !important; }
+
+/* Borders */
+.light .border-white\/5 { border-color: rgba(0, 0, 0, 0.06) !important; }
+.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.08) !important; }
+.light .border-white\/20 { border-color: rgba(0, 0, 0, 0.12) !important; }
+
+/* Hovers */
+.light .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .hover\:text-white:hover { color: var(--text-primary) !important; }
+.light .group-hover\:text-white { color: var(--text-muted) !important; }
+.light .group:hover .group-hover\:text-white { color: var(--text-primary) !important; }
+
+/* ── Hardcoded dark backgrounds → light ── */
+/* DatePicker */
+.light .bg-\[\#0c0c0e\] { background-color: #ffffff !important; border-color: rgba(0,0,0,0.08) !important; }
+.light .bg-\[\#1a1a1c\] { background-color: #f0f0f2 !important; border-color: rgba(0,0,0,0.06) !important; }
+.light .bg-\[\#121212\] { background-color: #ffffff !important; box-shadow: 0 10px 40px rgba(0,0,0,0.12) !important; }
+
+/* Modals / Popups / Panels */
+.light .bg-\[\#111\] { background-color: #ffffff !important; }
+.light .bg-\[\#1a1a1a\] { background-color: #f8f8fa !important; }
+.light .bg-\[\#0b0c10\]\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+.light .bg-\[\#0a0a0a\] { background-color: #f5f5f7 !important; }
+.light .bg-\[\#0d0d0f\] { background-color: #ffffff !important; }
+.light .bg-\[\#161618\] { background-color: #f5f5f7 !important; }
+.light .bg-\[\#111111\] { background-color: #f5f5f7 !important; }
+
+/* Black overlays */
+.light .bg-black\/50 { background-color: rgba(0, 0, 0, 0.15) !important; }
+.light .bg-black\/60 { background-color: rgba(0, 0, 0, 0.2) !important; }
+.light .bg-black\/70 { background-color: rgba(0, 0, 0, 0.25) !important; }
+.light .bg-black\/80 { background-color: rgba(0, 0, 0, 0.05) !important; }
+.light .bg-black\/90 { background-color: rgba(255, 255, 255, 0.95) !important; }
+.light .bg-black { background-color: #f5f5f7 !important; }
+.light .bg-surface\/50 { background-color: rgba(255, 255, 255, 0.85) !important; }
+
+/* Dividers */
+.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .bg-white\/\[0\.1\] { background-color: rgba(0, 0, 0, 0.06) !important; }
+
+/* Task cards & Kanban columns */
+.light .bg-zinc-900\/50 { background-color: rgba(255, 255, 255, 0.7) !important; }
+.light .bg-zinc-900\/30 { background-color: rgba(255, 255, 255, 0.5) !important; }
+.light .bg-zinc-800\/50 { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .bg-zinc-800\/30 { background-color: rgba(0, 0, 0, 0.03) !important; }
+.light .bg-zinc-800 { background-color: #f0f0f2 !important; }
+.light .bg-zinc-900 { background-color: #f5f5f7 !important; }
+
+/* Selects & Inputs */
+.light select,
+.light select option { background-color: #ffffff !important; color: #1a1a2e !important; }
+.light input { color: var(--text-primary) !important; }
+.light input::placeholder { color: var(--text-muted) !important; }
+.light textarea { color: var(--text-primary) !important; }
+.light textarea::placeholder { color: var(--text-muted) !important; }
+.light input.bg-black\/50,
+.light .bg-black\/50 input,
+.light input[class*="bg-black"] { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .focus\:border-acid:focus { border-color: color-mix(in srgb, var(--primary) 70%, black) !important; }
+
+/* Habit tracker grid */
+.light .border-zinc-800 { border-color: rgba(0, 0, 0, 0.06) !important; }
+.light .border-zinc-700 { border-color: rgba(0, 0, 0, 0.08) !important; }
+
+/* Chart axis lines in light mode */
+.light .recharts-cartesian-grid-horizontal line,
+.light .recharts-cartesian-grid-vertical line { stroke: rgba(0, 0, 0, 0.06) !important; }
+
+/* Finance - Mis Cuentas panel */
+.light .bg-\[\#050505\] { background-color: #ffffff !important; border-color: rgba(0, 0, 0, 0.08) !important; }
+
+/* TaskCard */
+.light .bg-\[\#0a0a0a\]\/80 { background-color: rgba(255, 255, 255, 0.85) !important; }
+
+/* Tasks tab active curves */
+.light .space-tab-active::before { background: radial-gradient(circle at 0 0, transparent 12px, #f5f5f7 12px) !important; }
+.light .space-tab-active::after { background: radial-gradient(circle at 100% 0, transparent 12px, #f5f5f7 12px) !important; }
+
+/* Acid green visibility in light mode */
+.light .text-acid { color: color-mix(in srgb, var(--primary) 70%, black) !important; }
+.light .border-acid { border-color: color-mix(in srgb, var(--primary) 70%, black) !important; }
+.light .bg-acid\/10 { background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+.light .bg-acid\/5 { background-color: color-mix(in srgb, var(--primary) 5%, transparent) !important; }
+
+/* Unified Primary Button Style */
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-acid text-black rounded-xl font-bold hover:bg-white transition-colors flex items-center justify-center gap-2;
+    box-shadow: 0 0 15px var(--primary-glow);
+  }
+}
