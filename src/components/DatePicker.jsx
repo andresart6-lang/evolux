@@ -116,7 +116,7 @@ const DatePicker = ({ selectedDate, onChange, monthOnly = false }) => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full left-0 mt-3 w-72 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl p-4 z-[100]"
+                        className="absolute top-full left-0 mt-3 w-72 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl p-4 z-[9999]"
                     >
                         {/* Header Navigation */}
                         <div className="flex items-center justify-between mb-4">

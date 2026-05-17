@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, Pencil, Trophy, X, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import { Plus, Minus, Pencil, Trophy, X, ChevronDown, Check } from 'lucide-react';
 import ColorPicker from '../components/ColorPicker';
+import { toast } from 'sonner';
 
 // Initial Mock Data
 const INITIAL_GOALS = [
@@ -27,8 +28,20 @@ const formatMoney = (amount) => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
 };
 
+const formatDateShort = (date) => {
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}`;
+};
+
 export default function Goals() {
-    const [goals, setGoals] = useState(INITIAL_GOALS);
+    const [goals, setGoals] = useState(() => {
+        const saved = localStorage.getItem('app_goals');
+        return saved ? JSON.parse(saved) : INITIAL_GOALS;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('app_goals', JSON.stringify(goals));
+    }, [goals]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState(null); // Objects if editing, null if creating
 
@@ -37,13 +50,11 @@ export default function Goals() {
     const [modalTarget, setModalTarget] = useState('');
     const [modalAmount, setModalAmount] = useState(''); // Initial amount for new goals
     const [modalColor, setModalColor] = useState('#4ade80');
-    const [showMaxAlert, setShowMaxAlert] = useState(false);
 
     // Handlers
     const openModal = (goal = null) => {
         if (!goal && goals.length >= 6) {
-            setShowMaxAlert(true);
-            setTimeout(() => setShowMaxAlert(false), 3000);
+            toast.error('¡Máximo 6 metas permitidas!');
             return;
         }
 
@@ -56,7 +67,7 @@ export default function Goals() {
         } else {
             setModalTitle('');
             setModalTarget('');
-            setModalAmount(''); // Start empty for new goal
+            setModalAmount('');
             setModalColor('#4ade80');
         }
         setIsModalOpen(true);
@@ -68,22 +79,30 @@ export default function Goals() {
     };
 
     const handleSaveGoal = () => {
-        if (!modalTitle || !modalTarget) return;
+        if (!modalTitle || !modalTarget) {
+            toast.error('Por favor completa los campos requeridos');
+            return;
+        }
 
         const targetVal = parseInt(modalTarget.replace(/\D/g, '')) || 0;
+
+        if (targetVal <= 0) {
+            toast.error('La meta debe ser mayor a 0');
+            return;
+        }
+
         const currentVal = parseInt(modalAmount.replace(/\D/g, '')) || 0;
 
         if (editingGoal) {
-            // Update
             setGoals(goals.map(g => g.id === editingGoal.id ? {
                 ...g,
                 title: modalTitle,
                 target: targetVal,
-                current: currentVal, // Allow manual override via edit
+                current: currentVal,
                 color: modalColor
             } : g));
+            toast.success('Meta actualizada');
         } else {
-            // Create
             const newGoal = {
                 id: Date.now(),
                 title: modalTitle,
@@ -92,42 +111,34 @@ export default function Goals() {
                 color: modalColor,
                 history: currentVal > 0 ? [{ id: Date.now(), date: new Date().toLocaleDateString(), amount: currentVal, type: 'add' }] : []
             };
-            setGoals([newGoal, ...goals]); // Add to top
+            setGoals([newGoal, ...goals]);
+            toast.success('Meta creada');
         }
         closeModal();
     };
 
     const handleTransaction = (id, amount, type) => {
+        const val = Math.abs(parseInt(amount.replace(/\D/g, ''))) || 0;
+        if (val <= 0) {
+            toast.error('Ingresa un monto válido');
+            return;
+        }
         setGoals(goals.map(g => {
             if (g.id === id) {
-                const newCurrent = Math.max(0, type === 'add' ? g.current + amount : g.current - amount);
+                const newCurrent = Math.max(0, type === 'add' ? g.current + val : g.current - val);
                 const newHistory = [
-                    { id: Date.now(), date: new Date().toLocaleDateString(), amount: amount, type },
+                    { id: Date.now(), date: formatDateShort(new Date()), amount: val, type },
                     ...g.history
                 ];
                 return { ...g, current: newCurrent, history: newHistory };
             }
             return g;
         }));
+        toast.success(type === 'add' ? 'Monto agregado' : 'Monto restado');
     };
 
     return (
         <div className="space-y-8 animate-fade-in pb-20 relative">
-
-            {/* Alert Toast */}
-            <AnimatePresence>
-                {showMaxAlert && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20, x: '-50%' }}
-                        animate={{ opacity: 1, y: 0, x: '-50%' }}
-                        exit={{ opacity: 0, y: -20, x: '-50%' }}
-                        className="fixed top-8 left-1/2 z-[100] bg-red-500 text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 font-bold"
-                    >
-                        <AlertCircle size={20} />
-                        ¡Máximo 6 metas permitidas!
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Header */}
             <div className="flex justify-between items-center">

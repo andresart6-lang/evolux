@@ -4,6 +4,7 @@ import { useUser } from '../context/UserContext';
 import { useFinance } from '../context/FinanceContext';
 import { useTheme } from '../context/ThemeContext';
 import StatCard from '../components/StatCard';
+import { toast } from 'sonner';
 
 const Finance = () => {
     const { user } = useUser();
@@ -26,18 +27,32 @@ const Finance = () => {
 
     const handleEditSave = (id) => {
         const cleanAmount = tempAmount.replace(/\D/g, '');
+        if (!tempName.trim()) {
+            toast.error('El nombre es requerido');
+            return;
+        }
         updateAccount(id, cleanAmount, tempName);
         setEditingAccount(null);
         setTempName('');
+        toast.success('Cuenta actualizada');
     };
 
     const handleAddAccount = () => {
-        if (!newAccountName || !newAccountAmount) return;
+        if (!newAccountName || !newAccountAmount) {
+            toast.error('Completa todos los campos');
+            return;
+        }
         const cleanAmount = newAccountAmount.replace(/\D/g, '');
         addAccount(newAccountName, cleanAmount);
         setIsAdding(false);
         setNewAccountName('');
         setNewAccountAmount('');
+        toast.success('Cuenta agregada');
+    };
+
+    const handleRemoveAccount = (id, name) => {
+        toast.success(`${name} eliminada`);
+        removeAccount(id);
     };
 
     return (
@@ -121,7 +136,11 @@ const Finance = () => {
                             value={newAccountAmount}
                             onChange={(e) => {
                                 const val = e.target.value.replace(/\D/g, '');
-                                setNewAccountAmount(Number(val).toLocaleString('es-CO'));
+                                if (val === '') {
+                                    setNewAccountAmount('');
+                                } else {
+                                    setNewAccountAmount(Number(val).toLocaleString('es-CO'));
+                                }
                             }}
                             className="bg-black/50 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-acid focus:outline-none w-32 text-right"
                         />
@@ -179,7 +198,7 @@ const Finance = () => {
                                         <Edit2 size={16} />
                                     </button>
                                     <button
-                                        onClick={() => removeAccount(acc.id)}
+                                        onClick={() => handleRemoveAccount(acc.id, acc.name)}
                                         className="p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                                     >
                                         <Trash2 size={16} />

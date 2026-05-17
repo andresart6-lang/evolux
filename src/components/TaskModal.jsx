@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Calendar, Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { useTasks } from '../context/TaskContext';
+import { taskSchema } from '../lib/validation';
+import { toast } from 'sonner';
 
 export default function TaskModal({ isOpen, onClose, initialData, defaultCategoryId }) {
-    const { categories, spaces, tasks, addTask, updateTask, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem } = useTasks();
+    const { categories, tasks, addTask, updateTask, deleteTask, addChecklistItem, toggleChecklistItem, deleteChecklistItem } = useTasks();
 
-    // Determine which space we're working in based on the default category
     const getSpaceForCategory = (catId) => {
         const cat = categories.find(c => c.id === catId);
         return cat?.spaceId || '';
@@ -13,48 +16,55 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
     const activeSpaceId = defaultCategoryId ? getSpaceForCategory(defaultCategoryId) : (initialData ? getSpaceForCategory(initialData.categoryId) : '');
     const spaceCategories = categories.filter(c => c.spaceId === activeSpaceId);
 
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [categoryId, setCategoryId] = useState(defaultCategoryId || categories[0]?.id || '');
-    const [date, setDate] = useState('');
-    const [newChecklistText, setNewChecklistText] = useState('');
-
-    // Get the LIVE task data from context (not stale initialData)
     const liveTask = initialData ? tasks.find(t => t.id === initialData.id) : null;
+    const isNew = !initialData;
 
-    useEffect(() => {
+    const { register, handleSubmit, formState: { errors }, setValue, watch, reset } = useForm({
+        resolver: zodResolver(taskSchema),
+        defaultValues: {
+            title: '',
+            description: '',
+            categoryId: defaultCategoryId || categories[0]?.id || '',
+            date: '',
+        }
+    });
+
+    React.useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                setTitle(initialData.title);
-                setDescription(initialData.description || '');
-                setCategoryId(initialData.categoryId);
-                setDate(initialData.date ? new Date(initialData.date).toISOString().split('T')[0] : '');
+                reset({
+                    title: initialData.title || '',
+                    description: initialData.description || '',
+                    categoryId: initialData.categoryId,
+                    date: initialData.date ? new Date(initialData.date).toISOString().split('T')[0] : '',
+                });
             } else {
-                setTitle('');
-                setDescription('');
-                setCategoryId(defaultCategoryId || categories[0]?.id || '');
-                setDate('');
-                setNewChecklistText('');
+                reset({
+                    title: '',
+                    description: '',
+                    categoryId: defaultCategoryId || categories[0]?.id || '',
+                    date: '',
+                });
             }
         }
-    }, [isOpen, initialData, defaultCategoryId, categories]);
+    }, [isOpen, initialData, defaultCategoryId, categories, reset]);
 
     if (!isOpen) return null;
 
-    const handleSave = () => {
-        if (!title.trim()) return;
-
+    const onSubmit = (data) => {
         const taskData = {
-            title,
-            description,
-            categoryId,
-            date: date ? new Date(date).toISOString() : null
+            title: data.title,
+            description: data.description || '',
+            categoryId: data.categoryId,
+            date: data.date ? new Date(data.date).toISOString() : null
         };
 
-        if (initialData) {
-            updateTask(initialData.id, taskData);
+        if (isNew) {
+            addTask(data.categoryId, data.title, data.description || '', taskData.date);
+            toast.success('Tarea creada exitosamente');
         } else {
-            addTask(categoryId, title, description, taskData.date);
+            updateTask(initialData.id, taskData);
+            toast.success('Tarea actualizada');
         }
         onClose();
     };
@@ -62,26 +72,26 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
     const handleDelete = () => {
         if (initialData && window.confirm('¿Seguro que deseas eliminar esta tarea?')) {
             deleteTask(initialData.id);
+            toast.success('Tarea eliminada');
             onClose();
         }
     };
 
     const handleAddChecklist = (e) => {
         e.preventDefault();
-        if (!newChecklistText.trim() || !initialData) return;
-        addChecklistItem(initialData.id, newChecklistText);
-        setNewChecklistText('');
+        const text = watch('checklistText');
+        if (!text?.trim() || !initialData) return;
+        addChecklistItem(initialData.id, text);
+        setValue('checklistText', '');
     };
 
-    const isNew = !initialData;
-    // Use live checklist data so toggles update immediately
     const checklist = liveTask?.checklist || [];
+    const titleValue = watch('title');
+    const checklistText = watch('checklistText');
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[90vh]">
-                
-                {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
                     <h2 className="text-xl font-bold text-white">{isNew ? 'Nueva Tarea' : 'Detalles de la Tarea'}</h2>
                     <div className="flex items-center gap-2">
@@ -96,31 +106,29 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
                     </div>
                 </div>
 
-                {/* Body (Scrollable) */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                    
-                    {/* Title Input */}
+                <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+
                     <div>
                         <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">
                             Título <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
+                            {...register('title')}
                             placeholder="Escribe el nombre de la tarea..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-lg font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-acid transition-colors"
+                            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-lg font-bold text-white placeholder:text-white/20 focus:outline-none focus:border-acid transition-colors ${errors.title ? 'border-red-500' : 'border-white/10'}`}
                             autoFocus
                         />
+                        {errors.title && (
+                            <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>
+                        )}
                     </div>
 
-                    {/* Metadata Row */}
                     <div className="flex flex-wrap gap-4">
                         <div className="flex-1 min-w-[200px]">
                             <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Clasificación</label>
                             <select
-                                value={categoryId}
-                                onChange={(e) => setCategoryId(e.target.value)}
+                                {...register('categoryId')}
                                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-acid transition-colors cursor-pointer [&>option]:bg-[#1a1a1a] [&>option]:text-white"
                             >
                                 {spaceCategories.map(cat => (
@@ -135,34 +143,34 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
                                 <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
                                 <input
                                     type="date"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
+                                    {...register('date')}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-acid transition-colors color-scheme-dark"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Description */}
                     <div>
                         <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Descripción</label>
                         <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            {...register('description')}
                             placeholder="Agrega notas, enlaces o detalles extra..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-acid transition-colors min-h-[100px] resize-y custom-scrollbar"
+                            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-acid transition-colors min-h-[100px] resize-y custom-scrollbar ${errors.description ? 'border-red-500' : 'border-white/10'}`}
                         />
+                        {errors.description && (
+                            <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>
+                        )}
                     </div>
 
-                    {/* Checklist Section */}
                     {!isNew ? (
                         <div>
                             <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Checklist</label>
-                            
+
                             <div className="space-y-1 mb-4">
                                 {checklist.map(item => (
                                     <div key={item.id} className="flex items-center gap-3 group px-2 py-2 rounded-xl hover:bg-white/5 transition-colors">
-                                        <button 
+                                        <button
+                                            type="button"
                                             onClick={() => toggleChecklistItem(initialData.id, item.id)}
                                             className={`flex-shrink-0 transition-all duration-300 ${item.isCompleted ? 'text-acid' : 'text-white/20 hover:text-white/50'}`}
                                         >
@@ -171,7 +179,8 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
                                         <span className={`text-sm flex-1 transition-all duration-300 ${item.isCompleted ? 'line-through text-white/30' : 'text-white/80'}`}>
                                             {item.text}
                                         </span>
-                                        <button 
+                                        <button
+                                            type="button"
                                             onClick={() => deleteChecklistItem(initialData.id, item.id)}
                                             className="text-red-500/0 group-hover:text-red-500/50 hover:!text-red-500 transition-all p-1"
                                         >
@@ -181,26 +190,27 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
                                 ))}
                             </div>
 
-                            <form onSubmit={handleAddChecklist} className="flex items-center gap-2">
+                            <div onSubmit={handleAddChecklist} className="flex items-center gap-2">
                                 <div className="relative flex-1">
                                     <Plus size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
                                     <input
                                         type="text"
-                                        value={newChecklistText}
-                                        onChange={(e) => setNewChecklistText(e.target.value)}
+                                        value={checklistText || ''}
+                                        onChange={(e) => setValue('checklistText', e.target.value)}
                                         placeholder="Añadir un elemento..."
                                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-acid transition-colors"
                                     />
                                 </div>
                                 <button
-                                    type="submit"
-                                    disabled={!newChecklistText.trim()}
+                                    type="button"
+                                    onClick={handleAddChecklist}
+                                    disabled={!checklistText?.trim()}
                                     className="p-2.5 bg-acid/10 border border-acid/20 text-acid rounded-xl hover:bg-acid/20 transition-colors disabled:opacity-30 disabled:hover:bg-acid/10 shrink-0"
                                     title="Agregar elemento"
                                 >
                                     <Plus size={18} />
                                 </button>
-                            </form>
+                            </div>
                         </div>
                     ) : (
                         <div className="bg-acid/5 border border-acid/10 rounded-xl p-4 text-center">
@@ -208,24 +218,23 @@ export default function TaskModal({ isOpen, onClose, initialData, defaultCategor
                         </div>
                     )}
 
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-white/5 shrink-0 flex justify-end gap-3">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2.5 rounded-xl text-white/70 hover:bg-white/5 transition-colors font-bold text-sm"
-                    >
-                        CERRAR
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={!title.trim()}
-                        className="px-6 py-2.5 bg-acid text-black rounded-xl font-bold text-sm hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(190,242,100,0.2)]"
-                    >
-                        GUARDAR CAMBIOS
-                    </button>
-                </div>
+                    <div className="p-6 border-t border-white/5 shrink-0 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2.5 rounded-xl text-white/70 hover:bg-white/5 transition-colors font-bold text-sm"
+                        >
+                            CERRAR
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!titleValue?.trim()}
+                            className="px-6 py-2.5 bg-acid text-black rounded-xl font-bold text-sm hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(190,242,100,0.2)]"
+                        >
+                            {isNew ? 'CREAR TAREA' : 'GUARDAR CAMBIOS'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

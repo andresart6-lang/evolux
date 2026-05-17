@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Flame, ChevronLeft, ChevronRight, X, Trash2, Trophy, AlertTriangle, Check, ChevronDown, Circle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -53,9 +53,16 @@ const FREQUENCY_OPTIONS = {
 
 export default function Fitness() {
     const { isDark } = useTheme();
-    const [habits, setHabits] = useState(INITIAL_HABITS);
-    const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 1)); // Set to FEB 2026
+    const [habits, setHabits] = useState(() => {
+        const saved = localStorage.getItem('app_fitness_habits');
+        return saved ? JSON.parse(saved) : INITIAL_HABITS;
+    });
+    const [currentDate, setCurrentDate] = useState(new Date());
     const monthDays = getMonthDays(currentDate);
+
+    useEffect(() => {
+        localStorage.setItem('app_fitness_habits', JSON.stringify(habits));
+    }, [habits]);
 
     const [isEditMode, setIsEditMode] = useState(false);
     const [isUnifiedColor, setIsUnifiedColor] = useState(false);

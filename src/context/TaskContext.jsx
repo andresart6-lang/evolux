@@ -7,7 +7,6 @@ export function useTasks() {
 }
 
 export function TaskProvider({ children }) {
-    // ── Spaces (top-level tabs: Personal, Laboral, Proyectos, etc.) ──
     const [spaces, setSpaces] = useState(() => {
         const saved = localStorage.getItem('app_spaces');
         if (saved) return JSON.parse(saved);
@@ -18,16 +17,11 @@ export function TaskProvider({ children }) {
         ];
     });
 
-    // ── Categories (Kanban columns within a space) ──
     const [categories, setCategories] = useState(() => {
         const saved = localStorage.getItem('app_categories');
         if (saved) {
             const parsed = JSON.parse(saved);
-            // Migration: if old categories don't have spaceId, assign them to the first space
-            return parsed.map(c => ({
-                ...c,
-                spaceId: c.spaceId || 'space_personal'
-            }));
+            return parsed.map(c => ({ ...c, spaceId: c.spaceId || 'space_personal' }));
         }
         return [
             { id: 'cat_todo', name: 'Por Hacer', color: '#3b82f6', spaceId: 'space_personal' },
@@ -48,7 +42,6 @@ export function TaskProvider({ children }) {
         return [];
     });
 
-    // Persist
     useEffect(() => {
         localStorage.setItem('app_spaces', JSON.stringify(spaces));
     }, [spaces]);
@@ -61,12 +54,10 @@ export function TaskProvider({ children }) {
         localStorage.setItem('app_tasks', JSON.stringify(tasks));
     }, [tasks]);
 
-    // ── Space Methods ──
     const addSpace = (name, color) => {
         const spaceId = `space_${Date.now()}`;
         const newSpace = { id: spaceId, name, color };
         setSpaces([...spaces, newSpace]);
-        // Auto-create default columns for the new space
         const defaultCats = [
             { id: `cat_${Date.now()}_1`, name: 'Por Hacer', color: '#3b82f6', spaceId },
             { id: `cat_${Date.now()}_2`, name: 'En Progreso', color: '#eab308', spaceId },
@@ -81,15 +72,13 @@ export function TaskProvider({ children }) {
     };
 
     const deleteSpace = (id) => {
-        if (spaces.length <= 1) return; // Don't allow deleting the last space
+        if (spaces.length <= 1) return;
         setSpaces(spaces.filter(s => s.id !== id));
-        // Delete all categories and tasks belonging to this space
         const catIds = categories.filter(c => c.spaceId === id).map(c => c.id);
         setCategories(categories.filter(c => c.spaceId !== id));
         setTasks(tasks.filter(t => !catIds.includes(t.categoryId)));
     };
 
-    // ── Categories Methods ──
     const addCategory = (name, color, spaceId) => {
         const newCat = { id: `cat_${Date.now()}`, name, color, spaceId };
         setCategories([...categories, newCat]);
@@ -105,7 +94,6 @@ export function TaskProvider({ children }) {
         setTasks(tasks.filter(t => t.categoryId !== id));
     };
 
-    // ── Tasks Methods ──
     const addTask = (categoryId, title, description = '', date = null) => {
         const newTask = {
             id: `task_${Date.now()}`,
@@ -136,7 +124,6 @@ export function TaskProvider({ children }) {
         setTasks(tasks.map(t => t.id === id ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' } : t));
     };
 
-    // ── Checklist Methods ──
     const addChecklistItem = (taskId, text) => {
         setTasks(tasks.map(t => {
             if (t.id === taskId) {

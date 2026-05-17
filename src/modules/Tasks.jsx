@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTasks } from '../context/TaskContext';
 import { useTheme } from '../context/ThemeContext';
 import TaskCard from '../components/TaskCard';
 import TaskModal from '../components/TaskModal';
 import CategoryModal from '../components/CategoryModal';
 import { Plus, MoreVertical, Pencil, Trash2, Settings, X, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Tasks() {
     const { spaces, categories, tasks, moveTask, addCategory, updateCategory, deleteCategory, addSpace, updateSpace, deleteSpace } = useTasks();
@@ -34,6 +35,25 @@ export default function Tasks() {
     // Filter categories by active space
     const activeCategories = categories.filter(c => c.spaceId === activeSpaceId);
     const activeSpace = spaces.find(s => s.id === activeSpaceId);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !isTaskModalOpen && !isCategoryModalOpen) {
+                e.preventDefault();
+                setDefaultTaskCategory(activeCategories[0]?.id || null);
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+            }
+            if (e.key === 'Escape') {
+                if (isTaskModalOpen) setIsTaskModalOpen(false);
+                if (isCategoryModalOpen) setIsCategoryModalOpen(false);
+                if (categoryMenuId) setCategoryMenuId(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isTaskModalOpen, isCategoryModalOpen, categoryMenuId, activeCategories]);
 
     // Drag and Drop Handlers
     const handleDragStart = (e, taskId) => {
@@ -86,12 +106,18 @@ export default function Tasks() {
 
     const handleDeleteCategory = (categoryId) => {
         const catTasks = tasks.filter(t => t.categoryId === categoryId);
-        const msg = catTasks.length > 0 
-            ? `Esta categoría tiene ${catTasks.length} tarea(s). ¿Eliminar la categoría y todas sus tareas?`
-            : '¿Seguro que deseas eliminar esta categoría?';
-        if (window.confirm(msg)) {
-            deleteCategory(categoryId);
-        }
+        toast.error('¿Estás seguro?', {
+            description: catTasks.length > 0
+                ? `Esta categoría tiene ${catTasks.length} tarea(s) que serán eliminadas.`
+                : 'Esta acción no se puede deshacer.',
+            action: {
+                label: 'Eliminar',
+                onClick: () => {
+                    deleteCategory(categoryId);
+                    toast.success('Categoría eliminada');
+                },
+            },
+        });
         setCategoryMenuId(null);
     };
 
@@ -99,24 +125,31 @@ export default function Tasks() {
     const handleAddSpace = () => {
         const newSpace = addSpace('Nuevo Espacio', '#6366f1');
         setActiveSpaceId(newSpace.id);
+        toast.success('Espacio creado');
     };
 
     const handleDeleteSpace = (spaceId) => {
         if (spaces.length <= 1) {
-            alert('Debes mantener al menos un espacio.');
+            toast.error('Debes mantener al menos un espacio');
             return;
         }
         const spaceCats = categories.filter(c => c.spaceId === spaceId);
         const spaceTasks = tasks.filter(t => spaceCats.some(c => c.id === t.categoryId));
-        const msg = spaceTasks.length > 0
-            ? `Este espacio tiene ${spaceTasks.length} tarea(s). ¿Eliminar el espacio con todas sus columnas y tareas?`
-            : '¿Seguro que deseas eliminar este espacio y todas sus columnas?';
-        if (window.confirm(msg)) {
-            deleteSpace(spaceId);
-            if (activeSpaceId === spaceId) {
-                setActiveSpaceId(spaces.find(s => s.id !== spaceId)?.id || '');
-            }
-        }
+        toast.error('¿Eliminar espacio?', {
+            description: spaceTasks.length > 0
+                ? `Este espacio tiene ${spaceTasks.length} tarea(s). Todas serán eliminadas.`
+                : 'Esta acción no se puede deshacer.',
+            action: {
+                label: 'Eliminar',
+                onClick: () => {
+                    deleteSpace(spaceId);
+                    if (activeSpaceId === spaceId) {
+                        setActiveSpaceId(spaces.find(s => s.id !== spaceId)?.id || '');
+                    }
+                    toast.success('Espacio eliminado');
+                },
+            },
+        });
     };
 
     // Count tasks per space
@@ -396,7 +429,7 @@ export default function Tasks() {
                                                     autoFocus
                                                 />
                                                 <button 
-                                                    onClick={() => { updateSpace(space.id, { name: editingSpaceName.trim() || space.name }); setEditingSpaceId(null); }}
+                                                    onClick={() => { updateSpace(space.id, { name: editingSpaceName.trim() || space.name }); setEditingSpaceId(null); toast.success('Espacio renombrado'); }}
                                                     className="p-1.5 bg-acid/10 text-acid rounded-lg hover:bg-acid/20 transition-colors"
                                                 >
                                                     <Check size={14} />
@@ -461,8 +494,10 @@ export default function Tasks() {
                 onSave={(name, color) => {
                     if (editingCategory) {
                         updateCategory(editingCategory.id, { name, color });
+                        toast.success('Categoría actualizada');
                     } else {
                         addCategory(name, color, activeSpaceId);
+                        toast.success('Categoría creada');
                     }
                 }}
             />

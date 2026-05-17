@@ -11,10 +11,12 @@ import {
     ChevronRight,
     Palette,
     Sun,
-    Moon
+    Moon,
+    LogOut
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../hooks/useAuth';
 
 const MENU_ITEMS = [
     { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
@@ -29,8 +31,14 @@ export default function Sidebar({ currentTab, onTabChange }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const { accentColor, isDark, toggleMode } = useTheme();
     const { user } = useUser();
+    const { logout } = useAuth();
 
     const isPersonalization = currentTab === 'personalization';
+
+    const handleLogout = () => {
+        logout();
+        window.location.href = '/auth';
+    };
 
     return (
         <motion.div
@@ -118,7 +126,7 @@ export default function Sidebar({ currentTab, onTabChange }) {
                     })}
                 </div>
 
-                {/* Personalization Button (navigates to tab) */}
+                {/* Personalization Button */}
                 <div className="py-1 border-t shrink-0 w-full" style={{ borderColor: 'var(--border-card)' }}>
                     <button
                         onClick={() => onTabChange('personalization')}
@@ -175,6 +183,34 @@ export default function Sidebar({ currentTab, onTabChange }) {
                     </button>
                 </div>
 
+                {/* Logout Button */}
+                <div className="py-1 shrink-0 w-full">
+                    <button
+                        onClick={handleLogout}
+                        className={`flex items-center h-12 rounded-xl transition-all relative group shrink-0 hover:bg-white/5 text-red-400 hover:text-red-300
+                            ${isCollapsed ? 'justify-center w-12 mx-auto' : 'w-full px-2'}
+                        `}
+                        title="Cerrar sesión"
+                    >
+                        <div className={`w-10 h-10 flex items-center justify-center shrink-0 z-10 relative`}>
+                            <LogOut size={20} />
+                        </div>
+                        <AnimatePresence mode="wait">
+                            {!isCollapsed && (
+                                <motion.span
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="text-sm font-medium whitespace-nowrap z-10 ml-3"
+                                >
+                                    Cerrar Sesión
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
+                    </button>
+                </div>
+
                 {/* Collapse Button */}
                 <div className="py-1 border-t shrink-0 w-full" style={{ borderColor: 'var(--border-card)' }}>
                     <button
@@ -206,5 +242,3 @@ export default function Sidebar({ currentTab, onTabChange }) {
         </motion.div>
     );
 }
-
-

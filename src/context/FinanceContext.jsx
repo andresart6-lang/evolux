@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Initial Data Structure (Simulated DB)
 const INITIAL_DB = {
     months: ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"],
     2026: {
@@ -10,7 +9,7 @@ const INITIAL_DB = {
             { id: 3, name: 'Seguro Hogar', date: 'Jun 05', amount: '3.500.000', status: 0 },
         ],
         months: {
-            0: { // Enero
+            0: {
                 fixedIncome: [
                     { id: 1, name: 'Salario Base', date: 'Ene 30', amount: '4.500.000', status: 1 },
                     { id: 2, name: 'Freelance Design', date: 'Ene 05', amount: '1.200.000', status: 1 },
@@ -24,12 +23,22 @@ const INITIAL_DB = {
                     { id: 1, name: 'Uber / Transporte', date: 'Ene 02', amount: '45.000', status: 1 },
                     { id: 2, name: 'Rappi / Comida', date: 'Ene 15', amount: '35.000', status: 1 },
                 ]
-            }
+            },
+            1: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            2: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            3: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            4: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            5: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            6: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            7: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            8: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            9: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            10: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
+            11: { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] },
         }
     }
 };
 
-// Initial Accounts Data (Finance Module)
 const INITIAL_ACCOUNTS = [
     { id: 1, name: 'Nequi', amount: 1000000 },
     { id: 2, name: 'DaviBank', amount: 2500000 },
@@ -38,39 +47,47 @@ const INITIAL_ACCOUNTS = [
 
 const FinanceContext = createContext();
 
-export const useFinance = () => useContext(FinanceContext);
+export function useFinance() {
+    return useContext(FinanceContext);
+}
 
-export const FinanceProvider = ({ children }) => {
-    const [db, setDb] = useState(INITIAL_DB);
-    const [accounts, setAccounts] = useState(INITIAL_ACCOUNTS);
+export function FinanceProvider({ children }) {
+    const [db, setDb] = useState(() => {
+        const saved = localStorage.getItem('app_finance_db');
+        return saved ? JSON.parse(saved) : INITIAL_DB;
+    });
+    const [accounts, setAccounts] = useState(() => {
+        const saved = localStorage.getItem('app_accounts');
+        return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
+    });
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // Helper: Update DB State
+    useEffect(() => {
+        localStorage.setItem('app_finance_db', JSON.stringify(db));
+    }, [db]);
+
+    useEffect(() => {
+        localStorage.setItem('app_accounts', JSON.stringify(accounts));
+    }, [accounts]);
+
     const updateDb = (section, operation, payload) => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
 
         setDb(prevDb => {
-            // Deep clone the year and month structure we are about to modify
-            const newDb = { ...prevDb };
+            const newDb = JSON.parse(JSON.stringify(prevDb));
+            newDb[year] = newDb[year] || { annual: [], months: {} };
+            newDb[year].months = newDb[year].months || {};
+            newDb[year].months[month] = newDb[year].months[month] || { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] };
 
-            // Ensure path exists with immutable copies
-            newDb[year] = { ...newDb[year] } || { annual: [], months: {} };
-            newDb[year].months = { ...newDb[year].months } || {};
-            newDb[year].months[month] = { ...newDb[year].months[month] } || { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] };
-
-            // Determine target array and clone it
             let targetArray;
             if (section === 'annual') {
-                targetArray = [...(newDb[year].annual || [])];
-                newDb[year].annual = targetArray;
+                targetArray = newDb[year].annual;
             } else {
-                targetArray = [...(newDb[year].months[month][section] || [])];
-                newDb[year].months[month][section] = targetArray;
+                targetArray = newDb[year].months[month][section];
             }
 
             if (operation === 'update') {
-                // payload: { id, field, value }
                 const index = targetArray.findIndex(item => item.id === payload.id);
                 if (index !== -1) {
                     targetArray[index] = { ...targetArray[index], [payload.field]: payload.value };
@@ -78,7 +95,6 @@ export const FinanceProvider = ({ children }) => {
             } else if (operation === 'add') {
                 targetArray.push(payload);
             } else if (operation === 'delete') {
-                // Filter returns a new array, so we must re-assign to the state structure
                 if (section === 'annual') {
                     newDb[year].annual = targetArray.filter(item => item.id !== payload.id);
                 } else {
@@ -90,7 +106,6 @@ export const FinanceProvider = ({ children }) => {
         });
     };
 
-    // Helper: Manage Accounts (Finance Module)
     const updateAccount = (id, newAmount, newName = null) => {
         setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, amount: parseInt(newAmount) || 0, name: newName || acc.name } : acc));
     };
@@ -103,30 +118,20 @@ export const FinanceProvider = ({ children }) => {
         setAccounts(prev => prev.filter(acc => acc.id !== id));
     };
 
-
-    // Helper: Calculate Totals (with Status Filter)
     const calculateTotal = (items) => {
         if (!items) return 0;
         return items.reduce((acc, item) => {
-            // Only count if status is 1 (Green/Paid)
             if (item.status !== 1) return acc;
-
-            // Remove non-numeric characters except checks for potential decimals if needed (here assuming integers with dots)
             const cleanAmount = parseInt(item.amount.replace(/\./g, '').replace(/\$/g, '')) || 0;
             return acc + cleanAmount;
         }, 0);
     };
 
-    // Helper: Get Data for Current View
     const getDisplayData = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-
-        // Ensure Year exists
         const yearData = db[year] || { annual: [], months: {} };
-        // Ensure Month exists
         const monthData = yearData.months[month] || { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] };
-
         return {
             annual: yearData.annual || [],
             fixedIncome: monthData.fixedIncome || [],
@@ -135,22 +140,17 @@ export const FinanceProvider = ({ children }) => {
         };
     };
 
-    // Helper: Get Previous Month Data for Trends
     const getPreviousMonthData = () => {
         const currentYear = currentDate.getFullYear();
         const currentMonth = currentDate.getMonth();
         let prevYear = currentYear;
         let prevMonth = currentMonth - 1;
-
         if (prevMonth < 0) {
             prevYear -= 1;
             prevMonth = 11;
         }
-
-        // Parse DB safely
         const yearData = db[prevYear] || { months: {} };
         const monthData = yearData.months ? (yearData.months[prevMonth] || { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] }) : { fixedIncome: [], monthlyExpenses: [], variableExpenses: [] };
-
         return {
             fixedIncome: monthData.fixedIncome || [],
             monthlyExpenses: monthData.monthlyExpenses || [],
@@ -161,20 +161,18 @@ export const FinanceProvider = ({ children }) => {
     const data = getDisplayData();
     const prevData = getPreviousMonthData();
 
-    // Derived Totals
     const totalIncome = calculateTotal(data.fixedIncome);
     const totalFixedExpenses = calculateTotal(data.monthlyExpenses);
     const totalVariableExpenses = calculateTotal(data.variableExpenses);
     const totalExpenses = totalFixedExpenses + totalVariableExpenses;
-    const savings = totalIncome - totalExpenses; // "Disponible"
+    const savings = totalIncome - totalExpenses;
 
     const prevTotalIncome = calculateTotal(prevData.fixedIncome);
     const prevTotalFixed = calculateTotal(prevData.monthlyExpenses);
     const prevTotalVariable = calculateTotal(prevData.variableExpenses || []);
 
-    // Calculate Trends
     const calculateTrend = (current, previous) => {
-        if (previous === 0) return current > 0 ? 100 : 0; // If nothing last month and something this month = 100% growth (symbolic)
+        if (previous === 0) return current > 0 ? 100 : 0;
         return Math.round(((current - previous) / previous) * 100);
     };
 
@@ -182,7 +180,6 @@ export const FinanceProvider = ({ children }) => {
     const fixedExpenseTrend = calculateTrend(totalFixedExpenses, prevTotalFixed);
     const variableExpenseTrend = calculateTrend(totalVariableExpenses, prevTotalVariable);
 
-    // Accounts Total
     const totalAccounts = accounts.reduce((acc, curr) => acc + Number(curr.amount), 0);
 
     const formatCurrency = (val) => '$' + val.toLocaleString('es-CO');
@@ -196,6 +193,11 @@ export const FinanceProvider = ({ children }) => {
         addAccount,
         removeAccount,
         data,
+        prevTotals: {
+            income: prevTotalIncome,
+            fixedExpenses: prevTotalFixed,
+            variableExpenses: prevTotalVariable
+        },
         totals: {
             income: totalIncome,
             fixedExpenses: totalFixedExpenses,
@@ -218,4 +220,4 @@ export const FinanceProvider = ({ children }) => {
             {children}
         </FinanceContext.Provider>
     );
-};
+}

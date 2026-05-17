@@ -3,6 +3,8 @@ import { TrendingUp, TrendingDown, DollarSign, Wallet, Pencil, Plus, Trash2, Che
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../context/UserContext';
 import DatePicker from '../components/DatePicker';
+import CalendarInput from '../components/CalendarInput';
+import { toast } from 'sonner';
 
 // --- Shared Components ---
 
@@ -68,12 +70,12 @@ const DashboardSection = ({ title, children, onEdit, isEditing, onAdd, isComplet
 };
 
 // Row Component
-const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, canDelete, currentDate }) => {
+const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, canDelete }) => {
     return (
         <div className="flex items-center gap-4 py-0.5 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 -mx-2 rounded-lg transition-colors min-h-[24px]">
             {/* Status Bulb */}
             <div className="shrink-0 flex items-center justify-center h-full pt-0.5">
-                <StatusBulb status={item.status} onClick={onStatusToggle} readOnly={!isEditing && false} />
+                <StatusBulb status={item.status} onClick={onStatusToggle} readOnly={!isEditing} />
             </div>
 
             {/* Content */}
@@ -100,8 +102,8 @@ const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, c
                             type="text"
                             value={item.date}
                             onChange={(e) => onChange(item.id, 'date', e.target.value)}
+                            className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white text-center w-20"
                             placeholder="Ene 15"
-                            className="w-14 bg-white/5 border border-white/10 rounded px-1 py-1 text-[11px] text-white focus:outline-none focus:border-acid text-center"
                         />
                     ) : (
                         <span className="text-xs text-text-muted">{item.date}</span>
@@ -123,7 +125,7 @@ const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, c
                             className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-acid text-right"
                         />
                     ) : (
-                        <span className="font-bold text-white text-sm tracking-wide">{item.amount}</span>
+                        <span className="font-bold text-white text-sm tracking-wide font-number">{item.amount}</span>
                     )}
                 </div>
 
@@ -156,6 +158,7 @@ export default function Dashboard() {
         setCurrentDate,
         updateDb,
         totals,
+        prevTotals,
         trends,
         formatCurrency,
         months
@@ -182,10 +185,12 @@ export default function Dashboard() {
     const addItem = (section) => {
         const newItem = { id: Date.now(), name: 'Nuevo Item', date: months[currentDate.getMonth()] + ' 01', amount: '0', status: 0 };
         updateDb(section, 'add', newItem);
+        toast.success('Item agregado');
     };
 
     const deleteItem = (section, id) => {
         updateDb(section, 'delete', { id });
+        toast.success('Item eliminado');
     };
 
     return (
@@ -269,7 +274,6 @@ export default function Dashboard() {
                             <TransactionRow
                                 key={item.id}
                                 item={item}
-                                currentDate={currentDate}
                                 isEditing={uiState.annual}
                                 onChange={(id, field, val) => handleDataChange('annual', id, field, val)}
                                 onDelete={(id) => deleteItem('annual', id)}
@@ -300,7 +304,6 @@ export default function Dashboard() {
                             <TransactionRow
                                 key={item.id}
                                 item={item}
-                                currentDate={currentDate}
                                 isEditing={uiState.fixedIncome}
                                 onChange={(id, field, val) => handleDataChange('fixedIncome', id, field, val)}
                                 onDelete={(id) => deleteItem('fixedIncome', id)}
@@ -310,7 +313,10 @@ export default function Dashboard() {
                         ))}
                         {/* Total Footer */}
                         <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm">
-                            <span className="text-text-muted">Total Ingresos</span>
+                            <div>
+                                <span className="text-text-muted">Total Ingresos</span>
+                                <span className="text-text-muted/50 text-xs ml-2">(Mes anterior: {formatCurrency(prevTotals.income)})</span>
+                            </div>
                             <span className="font-bold text-acid">{formatCurrency(totals.income)}</span>
                         </div>
                     </DashboardSection>
@@ -344,7 +350,6 @@ export default function Dashboard() {
                             <TransactionRow
                                 key={item.id}
                                 item={item}
-                                currentDate={currentDate}
                                 isEditing={uiState.monthlyExpenses}
                                 onChange={(id, field, val) => handleDataChange('monthlyExpenses', id, field, val)}
                                 onDelete={(id) => deleteItem('monthlyExpenses', id)}
@@ -354,7 +359,10 @@ export default function Dashboard() {
                         ))}
                         {/* Total Footer */}
                         <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm">
-                            <span className="text-text-muted">Total Fijos</span>
+                            <div>
+                                <span className="text-text-muted">Total Fijos</span>
+                                <span className="text-text-muted/50 text-xs ml-2">(Mes anterior: {formatCurrency(prevTotals.fixedExpenses)})</span>
+                            </div>
                             <span className="font-bold text-white">{formatCurrency(totals.fixedExpenses)}</span>
                         </div>
                     </DashboardSection>
@@ -382,7 +390,6 @@ export default function Dashboard() {
                             <TransactionRow
                                 key={item.id}
                                 item={item}
-                                currentDate={currentDate}
                                 isEditing={uiState.variableExpenses}
                                 onChange={(id, field, val) => handleDataChange('variableExpenses', id, field, val)}
                                 onDelete={(id) => deleteItem('variableExpenses', id)}
@@ -392,7 +399,10 @@ export default function Dashboard() {
                         ))}
                         {/* Total Footer */}
                         <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm">
-                            <span className="text-text-muted">Total Variables</span>
+                            <div>
+                                <span className="text-text-muted">Total Variables</span>
+                                <span className="text-text-muted/50 text-xs ml-2">(Mes anterior: {formatCurrency(prevTotals.variableExpenses)})</span>
+                            </div>
                             <span className="font-bold text-white">{formatCurrency(totals.variableExpenses)}</span>
                         </div>
                     </DashboardSection>

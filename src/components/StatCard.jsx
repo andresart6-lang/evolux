@@ -74,7 +74,7 @@ const StatCard = ({ title, amount, trend, icon: Icon, variant = 'glass', colorTh
             <div className="relative z-10 p-2">
                 <h3 className={`text-sm font-medium uppercase tracking-widest mb-1 ${isFilled ? 'text-white/80' : 'text-text-muted'}`}>{title}</h3>
                 <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl lg:text-4xl font-bold ${isFilled ? 'text-white drop-shadow-md' : 'bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent'}`}>{amount}</span>
+                    <span className={`text-3xl lg:text-4xl font-bold font-number ${isFilled ? 'text-white drop-shadow-md' : 'bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent'}`}>{amount}</span>
                 </div>
 
                 {/* Trend Section */}
