@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, DollarSign, CheckSquare } from 'lucide-react'
 const COLORS = ['#4ade80', '#fb923c', '#c084fc', '#60a5fa', '#f87171'];
 
 export default function Analytics() {
-    const { data, currentDate, formatCurrency, months } = useFinance();
+    const { data, transactions, currentDate, formatCurrency, months } = useFinance();
     const { spaces, categories, tasks } = useTasks();
 
     const MONTHS_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -26,25 +26,24 @@ export default function Analytics() {
                 y -= 1;
             }
 
-            const monthData = data.monthlyExpenses?.filter(t => {
+            const monthTransactions = transactions.filter(t => {
                 if (!t.date) return false;
                 const d = new Date(t.date + 'T00:00:00');
                 return d.getFullYear() === y && d.getMonth() === m;
-            }) || [];
+            });
 
-            const incomeData = data.fixedIncome?.filter(t => {
-                if (!t.date) return false;
-                const d = new Date(t.date + 'T00:00:00');
-                return d.getFullYear() === y && d.getMonth() === m;
-            }) || [];
+            const income = monthTransactions
+                .filter(t => t.category === 'fixedIncome' && t.status === 1)
+                .reduce((acc, t) => acc + Number(t.amount), 0);
 
-            const income = incomeData.reduce((acc, item) => acc + (item.status === 1 ? parseInt(String(item.amount).replace(/\./g, '')) || 0 : 0), 0);
-            const expenseFixed = monthData.reduce((acc, item) => acc + (item.status === 1 ? parseInt(String(item.amount).replace(/\./g, '')) || 0 : 0), 0);
-            const expenseVar = (data.variableExpenses?.filter(t => {
-                if (!t.date) return false;
-                const d = new Date(t.date + 'T00:00:00');
-                return d.getFullYear() === y && d.getMonth() === m;
-            }) || []).reduce((acc, item) => acc + (item.status === 1 ? parseInt(String(item.amount).replace(/\./g, '')) || 0 : 0), 0);
+            const expenseFixed = monthTransactions
+                .filter(t => t.category === 'monthlyExpenses' && t.status === 1)
+                .reduce((acc, t) => acc + Number(t.amount), 0);
+
+            const expenseVar = monthTransactions
+                .filter(t => t.category === 'variableExpenses' && t.status === 1)
+                .reduce((acc, t) => acc + Number(t.amount), 0);
+
             const totalExpense = expenseFixed + expenseVar;
 
             last6Months.push({
@@ -55,19 +54,19 @@ export default function Analytics() {
             });
         }
 
-        const currentMonthFixed = (data.monthlyExpenses || []).filter(t => {
-            if (!t.date) return false;
-            const d = new Date(t.date + 'T00:00:00');
-            return d.getFullYear() === year && d.getMonth() === currentMonthIdx;
-        });
-        const currentMonthVar = (data.variableExpenses || []).filter(t => {
+        const currentMonthTransactions = transactions.filter(t => {
             if (!t.date) return false;
             const d = new Date(t.date + 'T00:00:00');
             return d.getFullYear() === year && d.getMonth() === currentMonthIdx;
         });
 
-        const totalFixed = currentMonthFixed.reduce((acc, item) => acc + (item.status === 1 ? parseInt(String(item.amount).replace(/\./g, '')) || 0 : 0), 0);
-        const totalVar = currentMonthVar.reduce((acc, item) => acc + (item.status === 1 ? parseInt(String(item.amount).replace(/\./g, '')) || 0 : 0), 0);
+        const totalFixed = currentMonthTransactions
+            .filter(t => t.category === 'monthlyExpenses' && t.status === 1)
+            .reduce((acc, t) => acc + Number(t.amount), 0);
+
+        const totalVar = currentMonthTransactions
+            .filter(t => t.category === 'variableExpenses' && t.status === 1)
+            .reduce((acc, t) => acc + Number(t.amount), 0);
 
         const expenseBreakdown = [
             { name: 'Gastos Fijos', value: totalFixed },
