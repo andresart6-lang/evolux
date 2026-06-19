@@ -70,7 +70,7 @@ const DashboardSection = ({ title, children, onEdit, isEditing, onAdd, isComplet
             {/* Floating Edit Pencil (Top Right, on Border - Outside glass-card to avoid clip) */}
             <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                 <button
-                    onClick={onEdit}
+                    onClick={isEditing ? onSave : onEdit}
                     className={`w-6 h-6 rounded-full flex items-center justify-center shadow-lg transition-all ${isEditing ? 'bg-acid text-black' : 'bg-zinc-800 text-white border border-white/10 hover:bg-zinc-700'}`}
                 >
                     {isEditing ? <Check size={12} /> : <Pencil size={10} />}
@@ -219,7 +219,6 @@ export default function Dashboard() {
 
     const saveSection = async (section) => {
         const changes = pendingChanges[section];
-        const sectionData = data[section];
 
         // Save each pending change
         for (const [id, fields] of Object.entries(changes)) {
@@ -228,8 +227,9 @@ export default function Dashboard() {
             }
         }
 
-        // Clear pending changes for this section
+        // Clear pending changes and exit edit mode
         setPendingChanges(prev => ({ ...prev, [section]: {} }));
+        setUiState(prev => ({ ...prev, [section]: false }));
         toast.success('Cambios guardados');
     };
 
@@ -247,7 +247,7 @@ export default function Dashboard() {
     };
 
     const addItem = (section) => {
-        const newItem = { id: Date.now(), name: 'Nuevo Item', date: months[currentDate.getMonth()] + ' 01', amount: '0', status: 0 };
+        const newItem = { id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2), name: 'Nuevo Item', date: months[currentDate.getMonth()] + ' 01', amount: '0', status: 0 };
         updateDb(section, 'add', newItem);
         toast.success('Item agregado');
     };

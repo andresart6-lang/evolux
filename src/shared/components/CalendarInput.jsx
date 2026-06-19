@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -29,22 +28,21 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
         const parsed = parseDateString(value);
         return parsed || new Date();
     });
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const parsed = parseDateString(value);
-        return parsed || new Date();
-    });
     const containerRef = useRef(null);
+    const popupRef = useRef(null);
     const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
 
     useEffect(() => {
+        if (!isOpen) return;
         const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (
+                containerRef.current && !containerRef.current.contains(event.target) &&
+                popupRef.current && !popupRef.current.contains(event.target)
+            ) {
                 setIsOpen(false);
             }
         };
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
+        document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
 
@@ -53,7 +51,6 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
             const parsed = parseDateString(value);
             if (parsed) {
                 setViewDate(parsed);
-                setSelectedDate(parsed);
             }
         }
     }, [value]);
@@ -61,10 +58,19 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
     useEffect(() => {
         if (isOpen && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
-            setPopupPosition({
-                top: rect.bottom + window.scrollY + 8,
-                left: rect.left + window.scrollX
-            });
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            if (spaceBelow < 320 && spaceAbove > 320) {
+                setPopupPosition({
+                    top: rect.top + window.scrollY - 8,
+                    left: rect.left + window.scrollX
+                });
+            } else {
+                setPopupPosition({
+                    top: rect.bottom + window.scrollY + 8,
+                    left: rect.left + window.scrollX
+                });
+            }
         }
     }, [isOpen]);
 
@@ -79,10 +85,11 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
 
     const { days, firstDay } = getDaysInMonth(viewDate);
 
+    const selectedParsed = parseDateString(value);
+
     const handleDayClick = (day) => {
         const newDate = new Date(viewDate);
         newDate.setDate(day);
-        setSelectedDate(newDate);
         onChange(formatDateForStorage(newDate));
         setIsOpen(false);
     };
@@ -95,6 +102,7 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
 
     const calendarContent = (
         <div
+            ref={popupRef}
             className="fixed z-[99999] bg-[#121212] border border-white/10 rounded-xl shadow-2xl shadow-black/50 p-4 w-64"
             style={{
                 top: popupPosition.top,
@@ -130,15 +138,16 @@ export default function CalendarInput({ value, onChange, placeholder = 'Ene 15' 
                 ))}
                 {Array.from({ length: days }).map((_, i) => {
                     const day = i + 1;
-                    const isSelected =
-                        day === selectedDate.getDate() &&
-                        viewDate.getMonth() === selectedDate.getMonth() &&
-                        viewDate.getFullYear() === selectedDate.getFullYear();
+                    const isSelected = selectedParsed &&
+                        day === selectedParsed.getDate() &&
+                        viewDate.getMonth() === selectedParsed.getMonth() &&
+                        viewDate.getFullYear() === selectedParsed.getFullYear();
 
                     return (
                         <button
                             key={day}
                             type="button"
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleDayClick(day)}
                             className={`
                                 h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-all

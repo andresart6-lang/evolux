@@ -135,9 +135,20 @@ export function FinanceProvider({ children }) {
 
     const formatDateToDatabase = (frontendDateStr, currentDate) => {
         const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
+        const month = currentDate.getMonth(); // 0-indexed
         const dayMatch = frontendDateStr ? frontendDateStr.match(/\d+/) : null;
         const day = dayMatch ? parseInt(dayMatch[0]) : 1;
+
+        // Try to extract month from the frontend string (e.g. "Ene 15", "JUN 01")
+        if (frontendDateStr && typeof frontendDateStr === 'string') {
+            const monthMatch = frontendDateStr.match(/[A-Za-z\u00C0-\u024F]+/);
+            if (monthMatch) {
+                const frontendMonth = monthMatch[0];
+                const monthIndex = MONTHS_SHORT.findIndex(m => m.toUpperCase() === frontendMonth.toUpperCase());
+                if (monthIndex !== -1) return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+        }
+
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     };
 
