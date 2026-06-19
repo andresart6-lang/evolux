@@ -9,7 +9,6 @@ import {
     CheckSquare,
     ChevronLeft,
     ChevronRight,
-    Palette,
     Sun,
     Moon,
     LogOut
@@ -33,11 +32,13 @@ export default function Sidebar({ currentTab, onTabChange }) {
     const { user } = useUser();
     const { logout } = useAuth();
 
-    const isPersonalization = currentTab === 'personalization';
-
-    const handleLogout = () => {
-        logout();
-        window.location.href = '/auth';
+    const handleLogout = async () => {
+        try {
+            await logout();
+            window.location.href = '/auth';
+        } catch (err) {
+            console.error('Error closing session:', err);
+        }
     };
 
     return (
@@ -124,35 +125,6 @@ export default function Sidebar({ currentTab, onTabChange }) {
                             </button>
                         );
                     })}
-                </div>
-
-                {/* Personalization Button */}
-                <div className="py-1 border-t shrink-0 w-full" style={{ borderColor: 'var(--border-card)' }}>
-                    <button
-                        onClick={() => onTabChange('personalization')}
-                        className={`flex items-center h-12 rounded-xl transition-all relative group shrink-0
-                            ${isPersonalization ? 'bg-white/5' : 'hover:bg-white/5'}
-                            ${isCollapsed ? 'justify-center w-12 mx-auto' : 'w-full px-2'}
-                        `}
-                    >
-                        <div className={`w-10 h-10 flex items-center justify-center shrink-0 z-10 relative`}>
-                            <Palette size={20} className={`transition-all duration-300 ${isPersonalization ? 'text-acid drop-shadow-[0_0_8px_rgba(190,242,100,0.5)]' : 'text-text-muted group-hover:text-white'}`} />
-                        </div>
-                        <AnimatePresence mode="wait">
-                            {!isCollapsed && (
-                                <motion.span
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -10 }}
-                                    transition={{ duration: 0.2 }}
-                                    className={`text-sm font-medium whitespace-nowrap z-10 ml-3 ${isPersonalization ? '' : 'text-text-muted group-hover:text-white'}`}
-                                    style={{ color: isPersonalization ? 'var(--text-primary)' : undefined }}
-                                >
-                                    Personalización
-                                </motion.span>
-                            )}
-                        </AnimatePresence>
-                    </button>
                 </div>
 
                 {/* Theme Toggle */}

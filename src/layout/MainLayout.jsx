@@ -1,6 +1,6 @@
 import React from 'react';
 import Sidebar from './Sidebar';
-import NotificationBell from '../components/NotificationBell';
+import NotificationBell from '../shared/components/NotificationBell';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 

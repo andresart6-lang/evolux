@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 const UserContext = createContext({
     user: { name: 'Guest', email: '', avatar: null, plan: 'Free' },
@@ -11,22 +12,34 @@ export function useUser() {
 }
 
 export function UserProvider({ children }) {
-    const [user, setUser] = useState(() => {
-        const saved = localStorage.getItem('app_user');
-        if (saved) return JSON.parse(saved);
-        return { name: 'Andres G.', email: 'andres@example.com', avatar: null, plan: 'Plan Maestro' };
-    });
-
-    useEffect(() => {
-        localStorage.setItem('app_user', JSON.stringify(user));
-    }, [user]);
-
-    const updateName = (newName) => {
-        setUser(prev => ({ ...prev, name: newName }));
+    const { profile, user: authUser, updateProfile } = useAuth();
+    
+    const user = profile ? {
+        name: profile.name || authUser?.user_metadata?.name || 'Guest',
+        email: authUser?.email || '',
+        avatar: profile.avatar || null,
+        plan: profile.plan || 'Free'
+    } : {
+        name: 'Guest',
+        email: '',
+        avatar: null,
+        plan: 'Free'
     };
 
-    const updateAvatar = (newAvatar) => {
-        setUser(prev => ({ ...prev, avatar: newAvatar }));
+    const updateName = async (newName) => {
+        try {
+            await updateProfile({ name: newName });
+        } catch (err) {
+            console.error('Error updating name:', err);
+        }
+    };
+
+    const updateAvatar = async (newAvatar) => {
+        try {
+            await updateProfile({ avatar: newAvatar });
+        } catch (err) {
+            console.error('Error updating avatar:', err);
+        }
     };
 
     return (

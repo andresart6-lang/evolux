@@ -1,3 +1,6 @@
+#Agents
+.agents
+.playwright-cli
 # Dependencies
 node_modules
 .pnp
@@ -50,3 +53,6 @@ Thumbs.db
 
 # Vite
 .vite
+
+# SQL
+sql

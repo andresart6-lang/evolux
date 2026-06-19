@@ -1,47 +1,39 @@
 import { useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { useUser } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UserProvider } from './context/UserContext';
-import { FinanceProvider } from './context/FinanceContext';
-import { TaskProvider } from './context/TaskContext';
-import Auth from './modules/Auth';
+import { FinanceProvider } from './features/finance/context/FinanceContext';
+import { TaskProvider } from './features/tasks/context/TaskContext';
+import Auth from './features/auth/Auth';
 import MainLayout from './layout/MainLayout';
-import Dashboard from './modules/Dashboard';
-import Goals from './modules/Goals';
-import Fitness from './modules/Fitness';
-import Tasks from './modules/Tasks';
-import Finance from './modules/Finance';
-import Analytics from './modules/Analytics';
-import Personalization from './modules/Personalization';
-import Profile from './modules/Profile';
+import Dashboard from './features/dashboard/Dashboard';
+import Goals from './features/goals/Goals';
+import Fitness from './features/fitness/Fitness';
+import Tasks from './features/tasks/Tasks';
+import Finance from './features/finance/Finance';
+import Analytics from './features/analytics/Analytics';
+import Profile from './features/profile/Profile';
 import { useEffect } from 'react';
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState('home');
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!loading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [loading, isAuthenticated, navigate]);
 
-  const renderContent = () => {
-    switch (currentTab) {
-      case 'home': return <Dashboard />;
-      case 'wallet': return <Finance />;
-      case 'goals': return <Goals />;
-      case 'fitness': return <Fitness />;
-      case 'tasks': return <Tasks />;
-      case 'analytics': return <Analytics />;
-      case 'personalization': return <Personalization />;
-      case 'profile': return <Profile />;
-      default: return <Dashboard />;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-body)' }}>
+        <div className="w-8 h-8 border-2 border-acid border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -51,6 +43,19 @@ function AppRoutes() {
       </Routes>
     );
   }
+
+  const renderContent = () => {
+    switch (currentTab) {
+      case 'home': return <Dashboard />;
+      case 'wallet': return <Finance />;
+      case 'goals': return <Goals />;
+      case 'fitness': return <Fitness />;
+      case 'tasks': return <Tasks />;
+      case 'analytics': return <Analytics />;
+      case 'profile': return <Profile />;
+      default: return <Dashboard />;
+    }
+  };
 
   return (
     <MainLayout currentTab={currentTab} onTabChange={setCurrentTab}>

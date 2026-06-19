@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import './index.css'
 import App from './App.jsx'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider } from './features/auth/context/AuthContext'
 
 const root = createRoot(document.getElementById('root'))
 root.render(
