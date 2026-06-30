@@ -54,3 +54,13 @@ export const addGoalHistory = async (userId, history) => {
   if (error) handleError(error);
   return data;
 };
+
+export const deleteGoalHistory = async (id, userId) => {
+  const { error } = await supabase
+    .from('goal_history')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) handleError(error);
+  return { success: true };
+};

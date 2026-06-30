@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Wallet, Pencil, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, ChevronDown, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, Wallet, Pencil, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, Settings } from 'lucide-react';
+import CategoryEditorModal from './CategoryEditorModal';
+import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../../context/UserContext';
 import DatePicker from '../../shared/components/DatePicker';
@@ -14,8 +16,8 @@ const StatusBulb = ({ status, onClick, readOnly = false }) => {
         <button
             onClick={readOnly ? undefined : onClick}
             disabled={readOnly}
-            className={`w-4 h-4 rounded-full transition-all duration-300 ${status === 1 ? 'bg-acid' : (status === 2 ? 'bg-red-500' : 'bg-zinc-700 shadow-none')} ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
-            style={status === 1 ? { boxShadow: '0 0 15px var(--primary-glow)' } : (status === 2 ? { boxShadow: '0 0 15px rgba(239,68,68,0.6)' } : {})}
+            className={`w-4 h-4 rounded-full transition-all duration-300 ${status === 1 ? 'bg-green-500' : (status === 2 ? 'bg-red-500' : 'bg-zinc-700 shadow-none')} ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
+            style={status === 1 ? { boxShadow: '0 0 15px rgba(34,197,94,0.6)' } : (status === 2 ? { boxShadow: '0 0 15px rgba(239,68,68,0.6)' } : {})}
         />
     );
 };
@@ -80,86 +82,154 @@ const DashboardSection = ({ title, children, onEdit, isEditing, onAdd, isComplet
     );
 };
 
-// Row Component
-const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, canDelete, section, getItemValue }) => {
+// Encabezado de columnas — único para TODOS los paneles (espaciado idéntico).
+// Debe reflejar exactamente la estructura de TransactionRow para que alineen.
+const SectionHeader = ({ isEditing, hasCategory, onEditCategories }) => (
+    <div className="flex items-center gap-3 px-2 text-[10px] text-text-muted uppercase tracking-wider mb-2 font-medium">
+        <div className="flex items-center gap-1.5 shrink-0">
+            {isEditing && <span className="w-4"></span>}
+            <span className="w-4"></span>
+        </div>
+        <span className="flex-1 min-w-0">Concepto</span>
+        {hasCategory && (
+            <span className="w-28 shrink-0 flex items-center gap-1">
+                Categoría
+                {isEditing && (
+                    <button onClick={onEditCategories} className="text-text-muted/60 hover:text-acid transition-colors" title="Editar categorías">
+                        <Settings size={11} />
+                    </button>
+                )}
+            </span>
+        )}
+        <span className="w-24 shrink-0 text-right pr-2">Fecha</span>
+        <span className="w-24 shrink-0 text-right pr-2">Valor</span>
+        {isEditing && <span className="w-6"></span>}
+    </div>
+);
+
+// Fila de transacción
+const TransactionRow = ({ item, isEditing, onChange, onDelete, onStatusToggle, canDelete, section, getItemValue, onMove, isFirst, isLast, hasCategory, categories = [], itemCategory, onCategoryChange }) => {
     return (
         <div
-            className="flex items-center gap-4 py-0.5 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 -mx-2 rounded-lg transition-colors min-h-[24px]"
+            className="flex items-center gap-3 py-1 border-b border-white/5 last:border-0 hover:bg-white/5 px-2 -mx-2 rounded-lg transition-colors min-h-[28px]"
             onClick={(e) => isEditing && e.stopPropagation()}
             style={{ overflow: 'visible' }}
         >
-            {/* Status Bulb */}
-            <div className="shrink-0 flex items-center justify-center h-full pt-0.5">
-                <StatusBulb status={getItemValue(section, item, 'status')} onClick={onStatusToggle} readOnly={!isEditing} />
+            {/* Flechas de orden + Bombillo (juntos, pegados) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+                {isEditing && (
+                    <div className="w-4 flex flex-col items-center justify-center -my-1">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onMove('up'); }}
+                            disabled={isFirst}
+                            className="text-text-muted/50 hover:text-white disabled:opacity-20 disabled:hover:text-text-muted/50 transition-colors leading-none"
+                            title="Subir"
+                        >
+                            <ChevronUp size={13} />
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onMove('down'); }}
+                            disabled={isLast}
+                            className="text-text-muted/50 hover:text-white disabled:opacity-20 disabled:hover:text-text-muted/50 transition-colors leading-none"
+                            title="Bajar"
+                        >
+                            <ChevronDown size={13} />
+                        </button>
+                    </div>
+                )}
+                <div className="w-4 flex items-center justify-center">
+                    <StatusBulb status={getItemValue(section, item, 'status')} onClick={onStatusToggle} readOnly={isEditing} />
+                </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 flex items-center gap-4" style={{ overflow: 'visible' }}>
+            {/* Concepto */}
+            <div className="flex-1 min-w-0">
+                {isEditing ? (
+                    <input
+                        type="text"
+                        value={getItemValue(section, item, 'name')}
+                        onChange={(e) => onChange(item.id, 'name', e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-acid cursor-text"
+                    />
+                ) : (
+                    <span className="font-medium text-white text-xs truncate block">{getItemValue(section, item, 'name')}</span>
+                )}
+            </div>
 
-                {/* Name */}
-                <div className="flex-1 min-w-0">
+            {/* Categoría — selector solo en edición; en vista, texto limpio */}
+            {hasCategory && (
+                <div className="w-28 shrink-0">
                     {isEditing ? (
-                        <input
-                            type="text"
-                            value={getItemValue(section, item, 'name')}
-                            onChange={(e) => onChange(item.id, 'name', e.target.value)}
+                        <select
+                            value={itemCategory || ''}
+                            onChange={(e) => onCategoryChange(item.id, e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-acid cursor-text"
-                        />
+                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-acid cursor-pointer"
+                            style={{ colorScheme: 'dark' }}
+                        >
+                            <option value="" style={{ backgroundColor: '#18181b', color: '#fff' }}>—</option>
+                            {categories.map((c) => (
+                                <option key={c} value={c} style={{ backgroundColor: '#18181b', color: '#fff' }}>{c}</option>
+                            ))}
+                        </select>
                     ) : (
-                        <span className="font-medium text-white text-xs truncate block">{getItemValue(section, item, 'name')}</span>
+                        <span className="text-xs text-text-muted truncate block">{itemCategory || '—'}</span>
                     )}
                 </div>
+            )}
 
-                {/* Date */}
-                <div className="w-24 flex-shrink-0" style={{ overflow: 'visible', position: 'relative' }}>
-                    {isEditing ? (
-                        <div onClick={(e) => e.stopPropagation()} style={{ overflow: 'visible' }}>
-                            <CalendarInput
-                                value={getItemValue(section, item, 'date') || ''}
-                                onChange={(dateStr) => {
-                                    onChange(item.id, 'date', dateStr);
-                                }}
-                                placeholder="--"
-                            />
-                        </div>
-                    ) : (
+            {/* Fecha — título y valor alineados a la derecha con el MISMO padding (pr-2) */}
+            <div className="w-24 shrink-0" style={{ overflow: 'visible', position: 'relative' }}>
+                {isEditing ? (
+                    <div className="flex justify-end" onClick={(e) => e.stopPropagation()} style={{ overflow: 'visible' }}>
+                        <CalendarInput
+                            value={getItemValue(section, item, 'date') || ''}
+                            onChange={(dateStr) => { onChange(item.id, 'date', dateStr); }}
+                            placeholder="--"
+                        />
+                    </div>
+                ) : (
+                    <div className="text-right pr-2">
                         <span className="text-xs text-text-muted">{getItemValue(section, item, 'date')}</span>
-                    )}
-                </div>
-
-                {/* Amount */}
-                <div className="w-24 flex-shrink-0 text-right">
-                    {isEditing ? (
-                        <input
-                            type="text"
-                            value={getItemValue(section, item, 'amount')}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                                const rawValue = e.target.value.replace(/\./g, '').replace(/,/g, '');
-                                if (!/^\d*$/.test(rawValue)) return; // Only allow numbers
-                                const formatted = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                                onChange(item.id, 'amount', formatted);
-                            }}
-                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-acid text-right cursor-text"
-                        />
-                    ) : (
-                        <span className="font-bold text-white text-sm tracking-wide font-number">{getItemValue(section, item, 'amount')}</span>
-                    )}
-                </div>
-
+                    </div>
+                )}
             </div>
 
-            {/* Delete Action (Only in Edit Mode) */}
+            {/* Valor — mismo padding (pr-2) para que el número quede bajo el título */}
+            <div className="w-24 shrink-0">
+                {isEditing ? (
+                    <input
+                        type="text"
+                        value={getItemValue(section, item, 'amount')}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                            const rawValue = e.target.value.replace(/\./g, '').replace(/,/g, '');
+                            if (!/^\d*$/.test(rawValue)) return; // Solo números
+                            const formatted = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                            onChange(item.id, 'amount', formatted);
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-acid text-right cursor-text"
+                    />
+                ) : (
+                    <div className="text-right pr-2">
+                        <span className="font-bold text-white text-sm tracking-wide font-number">{getItemValue(section, item, 'amount')}</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Eliminar (solo en edición) */}
             {isEditing && (
-                <button
-                    onClick={() => canDelete && onDelete(item.id)}
-                    disabled={!canDelete}
-                    className={`p-1 rounded transition-colors ${canDelete ? 'text-red-400 hover:text-red-300 hover:bg-red-400/10' : 'text-zinc-700 cursor-not-allowed'}`}
-                    title={canDelete ? "Eliminar" : "No se puede eliminar el último item"}
-                >
-                    <Trash2 size={14} />
-                </button>
+                <div className="w-6 shrink-0 flex justify-center">
+                    <button
+                        onClick={() => canDelete && onDelete(item.id)}
+                        disabled={!canDelete}
+                        className={`p-1 rounded transition-colors ${canDelete ? 'text-red-400 hover:text-red-300 hover:bg-red-400/10' : 'text-zinc-700 cursor-not-allowed'}`}
+                        title={canDelete ? "Eliminar" : "No se puede eliminar el último item"}
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
             )}
         </div>
     );
@@ -176,12 +246,39 @@ export default function Dashboard() {
         currentDate,
         setCurrentDate,
         updateDb,
+        reorderSection,
         totals,
         prevTotals,
         trends,
         formatCurrency,
         months
     } = useFinance();
+
+    // Reordenar con flechas (subir/bajar) — intercambia posiciones. 100% fiable.
+    const moveItem = (section, id, direction) => {
+        const ids = data[section].map(i => i.id);
+        const idx = ids.indexOf(id);
+        if (idx === -1) return;
+        const swap = direction === 'up' ? idx - 1 : idx + 1;
+        if (swap < 0 || swap >= ids.length) return;
+        [ids[idx], ids[swap]] = [ids[swap], ids[idx]];
+        reorderSection(section, ids);
+    };
+
+    // Categorías de Gastos Fijos (desde el perfil de Supabase).
+    const { profile, updateProfile } = useAuth();
+    const categories = profile?.expense_categories || ['Necesidades', 'Deseos', 'Ahorro'];
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+    const handleSaveCategories = async (list) => {
+        try {
+            await updateProfile({ expense_categories: list });
+            toast.success('Categorías actualizadas');
+        } catch (error) {
+            console.error('Error saving categories:', error);
+            toast.error('Error al actualizar categorías');
+        }
+    };
 
     // Local UI State
     const [uiState, setUiState] = useState({ annual: false, fixedIncome: false, monthlyExpenses: false, variableExpenses: false });
@@ -260,12 +357,17 @@ export default function Dashboard() {
     return (
         <div className="space-y-8 animate-fade-in pb-20">
 
-            {/* Greeting */}
-            <div>
-                <h1 className="text-4xl md:text-5xl font-bold text-white mb-0 tracking-tight leading-[0.95]">
-                    Hola <span className="bg-gradient-to-r from-acid to-forest bg-clip-text text-transparent">{user?.name?.split(' ')[0]}</span>
-                </h1>
-                <p className="text-text-muted text-lg -mt-1 font-medium opacity-80">Bienvenido a tu Dashboard</p>
+            {/* Greeting + selector de mes alineado al título (consistente con Billetera) */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-0 tracking-tight leading-[0.95]">
+                        Hola <span className="bg-gradient-to-r from-acid to-forest bg-clip-text text-transparent">{user?.name?.split(' ')[0]}</span>
+                    </h1>
+                    <p className="text-text-muted text-lg -mt-1 font-medium opacity-80">Bienvenido a tu Dashboard</p>
+                </div>
+                <div className="shrink-0 relative z-50">
+                    <DatePicker selectedDate={currentDate} onChange={setCurrentDate} monthOnly={true} />
+                </div>
             </div>
 
             {/* --- Stats Grid (Classic) --- */}
@@ -298,19 +400,12 @@ export default function Dashboard() {
                     <StatCard
                         title="Disponible"
                         amount={formatCurrency(totals.savings)}
-                        trend={0}
                         icon={Wallet}
-                        variant="filled"
                         colorTheme="blue"
+                        subtitle="Saldo del mes"
                     />
                 </div>
             </div>
-
-            {/* Date Selector Bar (Floating between Stats and Content) */}
-            <div className="flex justify-start relative z-50">
-                <DatePicker selectedDate={currentDate} onChange={setCurrentDate} monthOnly={true} />
-            </div>
-
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
 
@@ -328,13 +423,8 @@ export default function Dashboard() {
                         isComplete={data.annual.length > 0 && data.annual.every(item => item.status === 1)}
                     >
                         {/* Column Headers */}
-                        <div className="flex items-center gap-4 px-2 text-[10px] text-text-muted uppercase tracking-wider mb-2 font-medium">
-                            <span className="w-4"></span>
-                            <span className="flex-1 min-w-0">Concepto</span>
-                            <span className="w-24 flex-shrink-0 text-center">Fecha</span>
-                            <span className="w-24 flex-shrink-0 text-right">Valor</span>
-                        </div>
-                        {data.annual.map(item => (
+                        <SectionHeader isEditing={uiState.annual} />
+                        {data.annual.map((item, idx) => (
                             <TransactionRow
                                 key={item.id}
                                 item={item}
@@ -345,6 +435,9 @@ export default function Dashboard() {
                                 canDelete={data.annual.length > 1}
                                 section="annual"
                                 getItemValue={getItemValue}
+                                onMove={(dir) => moveItem('annual', item.id, dir)}
+                                isFirst={idx === 0}
+                                isLast={idx === data.annual.length - 1}
                             />
                         ))}
                     </DashboardSection>
@@ -360,13 +453,8 @@ export default function Dashboard() {
                         isComplete={data.fixedIncome.length > 0 && data.fixedIncome.every(item => item.status === 1)}
                     >
                         {/* Column Headers */}
-                        <div className="flex items-center gap-4 px-2 text-[10px] text-text-muted uppercase tracking-wider mb-2 font-medium">
-                            <span className="w-4"></span>
-                            <span className="flex-1 min-w-0">Concepto</span>
-                            <span className="w-24 flex-shrink-0 text-center">Fecha</span>
-                            <span className="w-24 flex-shrink-0 text-right">Valor</span>
-                        </div>
-                        {data.fixedIncome.map(item => (
+                        <SectionHeader isEditing={uiState.fixedIncome} />
+                        {data.fixedIncome.map((item, idx) => (
                             <TransactionRow
                                 key={item.id}
                                 item={item}
@@ -377,6 +465,9 @@ export default function Dashboard() {
                                 canDelete={data.fixedIncome.length > 1}
                                 section="fixedIncome"
                                 getItemValue={getItemValue}
+                                onMove={(dir) => moveItem('fixedIncome', item.id, dir)}
+                                isFirst={idx === 0}
+                                isLast={idx === data.fixedIncome.length - 1}
                             />
                         ))}
                         {/* Total Footer */}
@@ -406,15 +497,9 @@ export default function Dashboard() {
                     >
 
                         {/* Column Headers */}
-                        <div className="flex items-center gap-4 px-2 py-2 border-b border-white/10 text-xs font-bold text-white uppercase tracking-wider mb-2">
-                            <div className="w-4"></div>
-                            <span className="flex-1 min-w-0">Concepto</span>
-                            <span className="w-24 flex-shrink-0 text-center text-text-muted/50">Fecha</span>
-                            <span className="w-24 flex-shrink-0 text-right text-text-muted/50">Valor</span>
-                            {uiState.monthlyExpenses && <div className="w-6"></div>}
-                        </div>
+                        <SectionHeader isEditing={uiState.monthlyExpenses} hasCategory onEditCategories={() => setIsCategoryModalOpen(true)} />
 
-                        {data.monthlyExpenses.map(item => (
+                        {data.monthlyExpenses.map((item, idx) => (
                             <TransactionRow
                                 key={item.id}
                                 item={item}
@@ -425,6 +510,13 @@ export default function Dashboard() {
                                 canDelete={data.monthlyExpenses.length > 1}
                                 section="monthlyExpenses"
                                 getItemValue={getItemValue}
+                                onMove={(dir) => moveItem('monthlyExpenses', item.id, dir)}
+                                isFirst={idx === 0}
+                                isLast={idx === data.monthlyExpenses.length - 1}
+                                hasCategory
+                                categories={categories}
+                                itemCategory={getItemValue('monthlyExpenses', item, 'category_label')}
+                                onCategoryChange={(id, val) => handleDataChange('monthlyExpenses', id, 'category_label', val)}
                             />
                         ))}
                         {/* Total Footer */}
@@ -448,15 +540,9 @@ export default function Dashboard() {
                         isComplete={data.variableExpenses.length > 0 && data.variableExpenses.every(item => item.status === 1)}
                     >
                         {/* Column Headers */}
-                        <div className="flex items-center gap-4 px-2 py-2 border-b border-white/10 text-xs font-bold text-white uppercase tracking-wider mb-2">
-                            <div className="w-4"></div>
-                            <span className="flex-1 min-w-0">Concepto</span>
-                            <span className="w-24 flex-shrink-0 text-center text-text-muted/50">Fecha</span>
-                            <span className="w-24 flex-shrink-0 text-right text-text-muted/50">Valor</span>
-                            {uiState.variableExpenses && <div className="w-6"></div>}
-                        </div>
+                        <SectionHeader isEditing={uiState.variableExpenses} />
 
-                        {data.variableExpenses.map(item => (
+                        {data.variableExpenses.map((item, idx) => (
                             <TransactionRow
                                 key={item.id}
                                 item={item}
@@ -467,6 +553,9 @@ export default function Dashboard() {
                                 canDelete={data.variableExpenses.length > 1}
                                 section="variableExpenses"
                                 getItemValue={getItemValue}
+                                onMove={(dir) => moveItem('variableExpenses', item.id, dir)}
+                                isFirst={idx === 0}
+                                isLast={idx === data.variableExpenses.length - 1}
                             />
                         ))}
                         {/* Total Footer */}
@@ -481,6 +570,14 @@ export default function Dashboard() {
 
                 </div>
             </div>
+
+            {/* Editor de categorías (pop-up) */}
+            <CategoryEditorModal
+                isOpen={isCategoryModalOpen}
+                categories={categories}
+                onClose={() => setIsCategoryModalOpen(false)}
+                onSave={handleSaveCategories}
+            />
 
         </div>
     );

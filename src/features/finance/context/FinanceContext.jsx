@@ -123,6 +123,21 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    // Reordena los items de una sección. Recibe los ids en el nuevo orden y
+    // persiste sort_order = posición. Optimista en estado, luego guarda en BD.
+    const reorderSection = async (section, orderedIds) => {
+        if (!userId) return;
+        setTransactions(prev => prev.map(t => {
+            const idx = orderedIds.indexOf(t.id);
+            return idx === -1 ? t : { ...t, sort_order: idx };
+        }));
+        try {
+            await Promise.all(orderedIds.map((id, idx) => transactionsDb.updateTransaction(id, userId, { sort_order: idx })));
+        } catch (error) {
+            console.error('Error reordering section:', error);
+        }
+    };
+
     const formatCurrency = (val) => '$' + (val || 0).toLocaleString('es-CO');
 
     const formatDateToFrontend = (isoDateStr) => {
@@ -208,43 +223,33 @@ export function FinanceProvider({ children }) {
             return tDate.getFullYear() === year;
         });
 
+        // Mapea e (importante) ordena por sort_order para soportar reordenar arrastrando.
+        // Empates (sort_order 0) mantienen el orden de la consulta (sort estable).
+        const mapAndSort = (txs) => txs
+            .map(t => ({
+                id: t.id,
+                name: t.name,
+                amount: Number(t.amount).toLocaleString('es-CO'),
+                date: formatDateToFrontend(t.date),
+                status: t.status,
+                sort_order: t.sort_order ?? 0,
+                category_label: t.category_label,
+            }))
+            .sort((a, b) => a.sort_order - b.sort_order);
+
         return {
-            [FINANCE_SECTIONS.ANNUAL]: filteredTransactions
-                .filter(t => t.category === FINANCE_SECTIONS.ANNUAL)
-                .map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    amount: Number(t.amount).toLocaleString('es-CO'),
-                    date: formatDateToFrontend(t.date),
-                    status: t.status
-                })),
-            [FINANCE_SECTIONS.FIXED_INCOME]: filteredTransactions
-                .filter(t => t.category === FINANCE_SECTIONS.FIXED_INCOME && new Date(t.date + 'T00:00:00').getMonth() === month)
-                .map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    amount: Number(t.amount).toLocaleString('es-CO'),
-                    date: formatDateToFrontend(t.date),
-                    status: t.status
-                })),
-            [FINANCE_SECTIONS.MONTHLY_EXPENSES]: filteredTransactions
-                .filter(t => t.category === FINANCE_SECTIONS.MONTHLY_EXPENSES && new Date(t.date + 'T00:00:00').getMonth() === month)
-                .map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    amount: Number(t.amount).toLocaleString('es-CO'),
-                    date: formatDateToFrontend(t.date),
-                    status: t.status
-                })),
-            [FINANCE_SECTIONS.VARIABLE_EXPENSES]: filteredTransactions
-                .filter(t => t.category === FINANCE_SECTIONS.VARIABLE_EXPENSES && new Date(t.date + 'T00:00:00').getMonth() === month)
-                .map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    amount: Number(t.amount).toLocaleString('es-CO'),
-                    date: formatDateToFrontend(t.date),
-                    status: t.status
-                }))
+            [FINANCE_SECTIONS.ANNUAL]: mapAndSort(
+                filteredTransactions.filter(t => t.category === FINANCE_SECTIONS.ANNUAL)
+            ),
+            [FINANCE_SECTIONS.FIXED_INCOME]: mapAndSort(
+                filteredTransactions.filter(t => t.category === FINANCE_SECTIONS.FIXED_INCOME && new Date(t.date + 'T00:00:00').getMonth() === month)
+            ),
+            [FINANCE_SECTIONS.MONTHLY_EXPENSES]: mapAndSort(
+                filteredTransactions.filter(t => t.category === FINANCE_SECTIONS.MONTHLY_EXPENSES && new Date(t.date + 'T00:00:00').getMonth() === month)
+            ),
+            [FINANCE_SECTIONS.VARIABLE_EXPENSES]: mapAndSort(
+                filteredTransactions.filter(t => t.category === FINANCE_SECTIONS.VARIABLE_EXPENSES && new Date(t.date + 'T00:00:00').getMonth() === month)
+            ),
         };
     }, [transactions, year, month]);
 
@@ -334,6 +339,7 @@ export function FinanceProvider({ children }) {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        reorderSection,
         updateDb,
         data,
         totals,

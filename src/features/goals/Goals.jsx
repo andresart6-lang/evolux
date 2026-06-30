@@ -1,26 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, Pencil, Trophy, X, ChevronDown, Check } from 'lucide-react';
+import { Plus, Minus, Pencil, Trophy, X, ChevronDown, Check, Trash2 } from 'lucide-react';
 import ColorPicker from '../../shared/components/ColorPicker';
+import PageHeader from '../../shared/components/PageHeader';
 import { toast } from 'sonner';
 import { useAuth } from '../../hooks/useAuth';
-import { getGoals, createGoal, updateGoal, deleteGoal, addGoalHistory } from './services/goals';
+import { getGoals, createGoal, updateGoal, deleteGoal, addGoalHistory, deleteGoalHistory } from './services/goals';
 
 const formatMoney = (amount) => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
 };
 
-const formatDateShort = (date) => {
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}`;
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+// Formatea la fecha de un movimiento (acepta ISO string o Date) -> "23 jun 2026".
+const formatHistoryDate = (d) => {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (!date || isNaN(date.getTime())) return '';
+    return `${date.getDate()} ${MESES[date.getMonth()]} ${date.getFullYear()}`;
 };
 
 export default function Goals() {
     const { userId, isAuthenticated } = useAuth();
-    const [goals, setGoals] = useState(() => {
-        const saved = localStorage.getItem('app_goals');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [goals, setGoals] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -35,23 +37,26 @@ export default function Goals() {
         setIsLoading(true);
         try {
             const data = await getGoals(userId);
-            if (data && data.length > 0) {
-                const formattedGoals = data.map(g => ({
-                    id: g.id,
-                    title: g.title,
-                    target: g.target,
-                    current: g.current,
-                    color: g.color,
-                    history: (g.goal_history || []).map(h => ({
+            // La nube (Supabase) es la única fuente de verdad. Siempre reflejamos
+            // lo que hay en la BD, incluso si quedó vacío tras borrar todo.
+            const formattedGoals = (data || []).map(g => ({
+                id: g.id,
+                title: g.title,
+                target: g.target,
+                current: g.current,
+                color: g.color,
+                history: (g.goal_history || [])
+                    .slice()
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map(h => ({
                         id: h.id,
                         date: h.date,
                         amount: h.amount,
-                        type: h.type
+                        type: h.type,
+                        note: h.note || ''
                     }))
-                }));
-                setGoals(formattedGoals);
-                localStorage.setItem('app_goals', JSON.stringify(formattedGoals));
-            }
+            }));
+            setGoals(formattedGoals);
         } catch (error) {
             console.error('Error loading goals:', error);
         } finally {
@@ -64,10 +69,6 @@ export default function Goals() {
             loadGoals();
         }
     }, [isAuthenticated, userId, loadGoals]);
-
-    useEffect(() => {
-        localStorage.setItem('app_goals', JSON.stringify(goals));
-    }, [goals]);
 
     const openModal = (goal = null) => {
         if (!goal && goals.length >= 6) {
@@ -112,10 +113,11 @@ export default function Goals() {
 
         try {
             if (editingGoal) {
+                // Al editar SOLO se cambian nombre/objetivo/color. El ahorrado NO se
+                // toca aquí: viene de los movimientos del historial (modelo coherente).
                 const updatedGoal = {
                     title: modalTitle,
                     target: targetVal,
-                    current: currentVal,
                     color: modalColor
                 };
                 await updateGoal(editingGoal.id, userId, updatedGoal);
@@ -134,26 +136,23 @@ export default function Goals() {
                 };
                 const createdGoal = await createGoal(userId, newGoalData);
 
-                const newGoal = {
-                    id: createdGoal.id,
-                    ...newGoalData,
-                    history: currentVal > 0 ? [{
-                        id: Date.now(),
-                        date: new Date().toLocaleDateString(),
-                        amount: currentVal,
-                        type: 'add'
-                    }] : []
-                };
-                setGoals([newGoal, ...goals]);
-
+                let initialHistory = [];
                 if (currentVal > 0) {
-                    await addGoalHistory(userId, {
+                    const createdHist = await addGoalHistory(userId, {
                         goal_id: createdGoal.id,
                         amount: currentVal,
                         type: 'add',
                         date: new Date().toISOString()
                     });
+                    initialHistory = [{
+                        id: createdHist?.id || Date.now(),
+                        date: createdHist?.date || new Date().toISOString(),
+                        amount: currentVal,
+                        type: 'add'
+                    }];
                 }
+
+                setGoals([{ id: createdGoal.id, ...newGoalData, history: initialHistory }, ...goals]);
                 toast.success('Meta creada');
             }
             closeModal();
@@ -163,7 +162,7 @@ export default function Goals() {
         }
     };
 
-    const handleTransaction = async (id, amount, type) => {
+    const handleTransaction = async (id, amount, type, note = '') => {
         const val = Math.abs(parseInt(String(amount).replace(/\D/g, ''))) || 0;
         if (val <= 0) {
             toast.error('Ingresa un monto válido');
@@ -177,18 +176,20 @@ export default function Goals() {
 
         try {
             await updateGoal(id, userId, { current: newCurrent });
-            await addGoalHistory(userId, {
+            const createdHist = await addGoalHistory(userId, {
                 goal_id: id,
                 amount: val,
                 type,
+                note: note || null,
                 date: new Date().toISOString()
             });
 
             const newHistory = [{
-                id: Date.now(),
-                date: formatDateShort(new Date()),
+                id: createdHist?.id || Date.now(),
+                date: createdHist?.date || new Date().toISOString(),
                 amount: val,
-                type
+                type,
+                note: note || ''
             }, ...goal.history];
 
             setGoals(goals.map(g => g.id === id ? { ...g, current: newCurrent, history: newHistory } : g));
@@ -196,6 +197,23 @@ export default function Goals() {
         } catch (error) {
             console.error('Error in transaction:', error);
             toast.error('Error al procesar la transacción');
+        }
+    };
+
+    // Borra un movimiento del historial y recalcula el ahorrado desde los movimientos restantes.
+    const handleDeleteMovement = async (goalId, hist) => {
+        const goal = goals.find(g => g.id === goalId);
+        if (!goal) return;
+        try {
+            await deleteGoalHistory(hist.id, userId);
+            const remaining = goal.history.filter(h => h.id !== hist.id);
+            const newCurrent = Math.max(0, remaining.reduce((acc, h) => acc + (h.type === 'add' ? h.amount : -h.amount), 0));
+            await updateGoal(goalId, userId, { current: newCurrent });
+            setGoals(goals.map(g => g.id === goalId ? { ...g, current: newCurrent, history: remaining } : g));
+            toast.success('Movimiento eliminado');
+        } catch (error) {
+            console.error('Error deleting movement:', error);
+            toast.error('Error al eliminar el movimiento');
         }
     };
 
@@ -213,19 +231,15 @@ export default function Goals() {
     return (
         <div className="space-y-8 animate-fade-in pb-20 relative">
 
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Mis Metas</h2>
-                    <p className="text-text-muted text-sm mt-1">Sigue tu progreso y alcanza tus metas de ahorro.</p>
-                </div>
-                <button
-                    onClick={() => openModal()}
-                    className="btn-primary"
-                    disabled={isLoading}
-                >
-                    <Plus size={18} /> Crear Meta
-                </button>
-            </div>
+            <PageHeader
+                title="Mis Metas"
+                subtitle="Sigue tu progreso para lograrlo."
+                right={
+                    <button onClick={() => openModal()} className="btn-primary" disabled={isLoading}>
+                        <Plus size={18} /> Crear Meta
+                    </button>
+                }
+            />
 
             {isLoading && (
                 <div className="flex justify-center py-8">
@@ -241,6 +255,7 @@ export default function Goals() {
                         onEdit={() => openModal(goal)}
                         onTransaction={handleTransaction}
                         onDelete={() => handleDeleteGoal(goal.id)}
+                        onDeleteMovement={handleDeleteMovement}
                     />
                 ))}
             </div>
@@ -274,7 +289,7 @@ export default function Goals() {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className={editingGoal ? '' : 'grid grid-cols-2 gap-4'}>
                                     <div>
                                         <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Meta Total</label>
                                         <input
@@ -285,16 +300,18 @@ export default function Goals() {
                                             placeholder="$0"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Monto Inicial</label>
-                                        <input
-                                            type="text"
-                                            value={Number(modalAmount).toLocaleString('es-CO')}
-                                            onChange={(e) => setModalAmount(e.target.value.replace(/\D/g, ''))}
-                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-acid focus:outline-none text-right font-mono"
-                                            placeholder="$0"
-                                        />
-                                    </div>
+                                    {!editingGoal && (
+                                        <div>
+                                            <label className="text-xs uppercase font-bold text-text-muted mb-1 block">Monto Inicial</label>
+                                            <input
+                                                type="text"
+                                                value={Number(modalAmount).toLocaleString('es-CO')}
+                                                onChange={(e) => setModalAmount(e.target.value.replace(/\D/g, ''))}
+                                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-acid focus:outline-none text-right font-mono"
+                                                placeholder="$0"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -321,8 +338,9 @@ export default function Goals() {
     );
 }
 
-const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
+const GoalCard = ({ goal, onEdit, onTransaction, onDelete, onDeleteMovement }) => {
     const [amountInput, setAmountInput] = useState('');
+    const [noteInput, setNoteInput] = useState('');
     const [showHistory, setShowHistory] = useState(false);
 
     const progress = Math.min(100, (goal.current / goal.target) * 100);
@@ -335,8 +353,9 @@ const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
     const handleAction = (type) => {
         const val = parseInt(amountInput.replace(/\D/g, '')) || 0;
         if (val <= 0) return;
-        onTransaction(goal.id, val, type);
+        onTransaction(goal.id, val, type, noteInput.trim());
         setAmountInput('');
+        setNoteInput('');
     };
 
     return (
@@ -347,7 +366,7 @@ const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
             exit={{ opacity: 0, scale: 0.9 }}
             className="relative group w-full"
         >
-            <div className="glass-card p-6 border transition-all hover:bg-white/[0.02]" style={customStyle}>
+            <div className="glass-card p-5 border transition-all hover:bg-white/[0.02]" style={customStyle}>
 
                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                     <button onClick={onEdit} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors" title="Editar">
@@ -368,28 +387,28 @@ const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
                     </div>
                 </div>
 
-                <div className="mt-4 mb-2 h-4 w-full bg-black/40 rounded-full border border-white/5 relative">
+                <div className="mt-3 mb-2 h-2.5 w-full bg-white/10 rounded-full relative overflow-hidden">
                     <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         transition={{ duration: 1, ease: "easeOut" }}
                         className="h-full relative overflow-hidden rounded-full"
                         style={{
-                            background: `linear-gradient(90deg, ${goal.color}22 0%, ${goal.color} 100%)`,
-                            boxShadow: `0 0 15px 1px ${goal.color}80`
+                            background: `linear-gradient(90deg, ${goal.color}55 0%, ${goal.color} 100%)`,
+                            boxShadow: progress > 0 ? `0 0 12px 0 ${goal.color}70` : 'none'
                         }}
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full -skew-x-12 opacity-50" />
                     </motion.div>
                 </div>
 
-                <div className="flex justify-between items-center mb-6 px-1">
+                <div className="flex justify-between items-center mb-3 px-1">
                     <span className="text-white font-mono font-bold text-lg">{formatMoney(goal.current)}</span>
                     <span className="text-2xl font-bold" style={{ color: goal.color }}>{Math.round(progress)}%</span>
                 </div>
 
-                <div className="flex bg-black/30 rounded-xl p-1 border border-white/5 relative z-20">
-                    <button onClick={() => handleAction('subtract')} className="p-3 hover:bg-red-500/20 text-text-muted hover:text-red-400 rounded-lg transition-colors">
+                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5 relative z-20">
+                    <button onClick={() => handleAction('subtract')} className="p-2.5 hover:bg-red-500/20 text-text-muted hover:text-red-400 rounded-lg transition-colors">
                         <Minus size={18} />
                     </button>
                     <input
@@ -397,14 +416,22 @@ const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
                         placeholder="Monto..."
                         value={amountInput}
                         onChange={(e) => setAmountInput(e.target.value)}
-                        className="flex-1 bg-transparent text-center text-white font-mono focus:outline-none placeholder-white/20 text-sm"
+                        className="flex-1 bg-transparent text-center text-white font-mono focus:outline-none placeholder-white/20 text-sm min-w-0"
                     />
-                    <button onClick={() => handleAction('add')} className="p-3 hover:bg-green-500/20 text-text-muted hover:text-green-400 rounded-lg transition-colors">
+                    <button onClick={() => handleAction('add')} className="p-2.5 hover:bg-green-500/20 text-text-muted hover:text-green-400 rounded-lg transition-colors">
                         <Plus size={18} />
                     </button>
                 </div>
 
-                <div className="mt-4 border-t border-white/5 pt-2">
+                <input
+                    type="text"
+                    placeholder="Nota (opcional): quincena, freelance…"
+                    value={noteInput}
+                    onChange={(e) => setNoteInput(e.target.value)}
+                    className="mt-2 w-full bg-white/5 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-acid transition-colors"
+                />
+
+                <div className="mt-3 border-t border-white/5 pt-2">
                     <button
                         onClick={() => setShowHistory(!showHistory)}
                         className="w-full flex justify-between items-center text-xs text-text-muted hover:text-white py-1 uppercase font-bold tracking-wider group/hist"
@@ -419,14 +446,26 @@ const GoalCard = ({ goal, onEdit, onTransaction, onDelete }) => {
                                 initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                                 className="overflow-hidden"
                             >
-                                <div className="space-y-1 mt-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                                <div className="space-y-1 mt-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                                     {goal.history && goal.history.length > 0 ? (
-                                        goal.history.map((h, i) => (
-                                            <div key={i} className="flex justify-between items-center text-[10px] font-mono p-1.5 rounded hover:bg-white/5 transition-colors">
-                                                <span className="text-white/40">{h.date}</span>
-                                                <span className={h.type === 'add' ? 'text-green-400' : 'text-red-400'}>
-                                                    {h.type === 'add' ? '+' : '-'}{formatMoney(h.amount)}
-                                                </span>
+                                        goal.history.map((h) => (
+                                            <div key={h.id} className="flex justify-between items-center gap-2 text-[11px] font-mono p-1.5 rounded hover:bg-white/5 transition-colors group/h">
+                                                <div className="min-w-0">
+                                                    <span className="text-text-muted">{formatHistoryDate(h.date)}</span>
+                                                    {h.note && <span className="block text-white/40 text-[10px] truncate not-italic">{h.note}</span>}
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className={h.type === 'add' ? 'text-green-400' : 'text-red-400'}>
+                                                        {h.type === 'add' ? '+' : '-'}{formatMoney(h.amount)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => onDeleteMovement(goal.id, h)}
+                                                        className="p-0.5 text-red-500/40 hover:text-red-500 opacity-0 group-hover/h:opacity-100 transition-all"
+                                                        title="Eliminar movimiento"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))
                                     ) : (

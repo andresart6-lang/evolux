@@ -1,32 +1,34 @@
-#Agents
+# Agents
 .agents
 .playwright-cli
+skills-lock.json
+
 # Dependencies
 node_modules
 .pnp
 .pnp.js
+.yarn/install-state.gz
 
-# Testing
-coverage
-
-# Production
+# Build / Production
 dist
 build
+*.tsbuildinfo
 
-# Misc
-.DS_Store
+# Environment variables
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
 # Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+
+# Testing
+coverage
 
 # Editor directories and files
 .vscode
@@ -37,22 +39,42 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+*.sublime-project
+*.code-workspace
 
-# IDE
+# IDE swap/temp files
 *.swp
 *.swo
 *~
 .vim
-.code-workspace
 
-# OS
+# OS generated files
+.DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .AppleDouble
 .LSOverride
 ._*
+.Spotlight-V100
+.Trashes
 
 # Vite
 .vite
 
-# SQL
+# ESLint
+.eslintcache
+
+# Supabase
+.supabase
+supabase
+
+# SQL (schema managed separately)
 sql
+
+# Vercel
+.vercel
+
+# Local overrides
+*.local

@@ -32,3 +32,9 @@ export const THEME_COLORS = [
   { id: 'purple',  name: 'Purple',  value: '#8b5cf6', label: 'Morado' },
   { id: 'rose',    name: 'Rose',    value: '#f43f5e', label: 'Rosa' },
 ];
+
+export const EXPENSE_CATEGORIES_LIMITS = {
+  MIN: 2,
+  MAX: 5,
+};
+

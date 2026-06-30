@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 export const THEME_COLORS = [
     { id: 'emerald', name: 'Emerald', value: '#10b981', label: 'Verde' },
@@ -10,13 +11,46 @@ export const THEME_COLORS = [
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-    const [accentColor, setAccentColor] = useState(THEME_COLORS[0]);
+    const { profile, updateProfile, isAuthenticated } = useAuth();
+    const [accentColor, setAccentColorState] = useState(THEME_COLORS[1]); // Default to blue (#3b82f6)
     const [mode, setMode] = useState(() => {
         return localStorage.getItem('app_theme_mode') || 'dark';
     });
 
-    const toggleMode = () => {
-        setMode(prev => prev === 'dark' ? 'light' : 'dark');
+    // Load from profile when available
+    useEffect(() => {
+        if (profile) {
+            if (profile.theme && profile.theme !== mode) {
+                setMode(profile.theme);
+            }
+            if (profile.accent_color && profile.accent_color !== accentColor.value) {
+                const found = THEME_COLORS.find(c => c.value.toLowerCase() === profile.accent_color.toLowerCase());
+                setAccentColorState(found || { id: 'custom', name: 'Custom', value: profile.accent_color, label: 'Personalizado' });
+            }
+        }
+    }, [profile]);
+
+    const setAccentColor = async (colorObj) => {
+        setAccentColorState(colorObj);
+        if (isAuthenticated) {
+            try {
+                await updateProfile({ accent_color: colorObj.value });
+            } catch (err) {
+                console.error('Error updating accent color in profile:', err);
+            }
+        }
+    };
+
+    const toggleMode = async () => {
+        const nextMode = mode === 'dark' ? 'light' : 'dark';
+        setMode(nextMode);
+        if (isAuthenticated) {
+            try {
+                await updateProfile({ theme: nextMode });
+            } catch (err) {
+                console.error('Error updating theme in profile:', err);
+            }
+        }
     };
 
     const isDark = mode === 'dark';
@@ -57,3 +91,4 @@ export function ThemeProvider({ children }) {
 export function useTheme() {
     return useContext(ThemeContext);
 }
+

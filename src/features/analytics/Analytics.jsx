@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useFinance } from '../finance/context/FinanceContext';
 import { useTasks } from '../tasks/context/TaskContext';
 import { TrendingUp, TrendingDown, DollarSign, CheckSquare } from 'lucide-react';
+import PageHeader from '../../shared/components/PageHeader';
 
 const COLORS = ['#4ade80', '#fb923c', '#c084fc', '#60a5fa', '#f87171'];
 
@@ -183,15 +184,7 @@ export default function Analytics() {
     return (
         <div className="space-y-8 animate-fade-in pb-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Análisis</h2>
-                    <p className="text-text-muted text-sm mt-1">Visualiza tus patrones de gasto, ahorro y productividad.</p>
-                </div>
-                <button className="btn-primary" onClick={() => {}}>
-                    Exportar Métricas
-                </button>
-            </div>
+            <PageHeader title="Mis Métricas" subtitle="Visualiza tus patrones y productividad." />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 

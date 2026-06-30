@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTasks } from './context/TaskContext';
 import { useTheme } from '../../context/ThemeContext';
+import PageHeader from '../../shared/components/PageHeader';
 import TaskCard from './components/TaskCard';
 import TaskModal from './components/TaskModal';
 import CategoryModal from './components/CategoryModal';
-import { Plus, MoreVertical, Pencil, Trash2, Settings, X, Check } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2, Settings, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Tasks() {
@@ -158,8 +159,12 @@ export default function Tasks() {
         return tasks.filter(t => spaceCats.some(c => c.id === t.category_id)).length;
     };
 
+    // Slider horizontal del tablero (columnas)
+    const boardRef = useRef(null);
+    const scrollBoard = (delta) => boardRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
+
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-w-0">
             <style>{`
                 .space-tab-active {
                     position: relative;
@@ -184,10 +189,25 @@ export default function Tasks() {
                 }
             `}</style>
 
-            {/* Title */}
+            {/* Title + acciones alineadas (consistente con las otras páginas) */}
             <div className="shrink-0 mb-5">
-                <h1 className="text-3xl font-bold text-white tracking-tighter">Gestión de Tareas</h1>
-                <p className="text-text-muted text-sm mt-1">Organiza, prioriza y mantén el control de tus actividades diarias.</p>
+                <PageHeader
+                    title="Mis Tareas"
+                    subtitle="Mantén el control de tus actividades."
+                    right={
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={openNewCategoryModal}
+                                className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold tracking-wide text-xs hover:bg-white/10 transition-colors whitespace-nowrap"
+                            >
+                                + COLUMNA
+                            </button>
+                            <button onClick={() => openNewTaskModal()} className="btn-primary whitespace-nowrap">
+                                + TAREA
+                            </button>
+                        </div>
+                    }
+                />
             </div>
 
             {/* ── Top Row: Tabs + Actions ── */}
@@ -267,28 +287,25 @@ export default function Tasks() {
                     </div>
                 </div>
 
-                {/* Action Buttons (always visible, outside scroll) */}
-                <div className="flex items-center gap-3 shrink-0 mb-3">
-                    <button 
-                        onClick={openNewCategoryModal}
-                        className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold tracking-wide text-xs hover:bg-white/10 transition-colors whitespace-nowrap"
-                    >
-                        + COLUMNA
-                    </button>
-                    <button 
-                        onClick={() => openNewTaskModal()}
-                        className="btn-primary whitespace-nowrap"
-                    >
-                        + TAREA
-                    </button>
-                </div>
+                {/* Slider del tablero (para navegar columnas si hay más de las visibles) */}
+                {activeCategories.length > 0 && (
+                    <div className="flex items-center gap-2 shrink-0 mb-3">
+                        <span className="text-text-muted/60 text-[11px] font-semibold tracking-wide mr-1 hidden sm:inline">Desliza para ver columnas</span>
+                        <button onClick={() => scrollBoard(-340)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-colors" title="Columnas anteriores">
+                            <ChevronLeft size={15} />
+                        </button>
+                        <button onClick={() => scrollBoard(340)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-colors" title="Columnas siguientes">
+                            <ChevronRight size={15} />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Seamless bottom border */}
             <div className="w-full h-[1px] bg-white/10 relative z-0 shrink-0 mt-1" />
 
             {/* ── Kanban Board Area ── */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar pt-6 pb-4 flex gap-5">
+            <div ref={boardRef} className="flex-1 min-w-0 overflow-x-auto overflow-y-auto custom-scrollbar pt-6 pb-4 flex gap-5">
                 {activeCategories.map(category => {
                     const categoryTasks = tasks.filter(t => t.category_id === category.id);
                     

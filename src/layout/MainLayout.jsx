@@ -41,7 +41,7 @@ export default function MainLayout({ currentTab, onTabChange, children }) {
 
             <Sidebar currentTab={currentTab} onTabChange={onTabChange} />
 
-            <main className="flex-1 relative z-10 h-screen overflow-y-auto p-4 md:p-8 pt-12 md:pt-16 custom-scrollbar">
+            <main className="flex-1 min-w-0 relative z-10 h-screen overflow-y-auto p-4 md:p-8 pt-12 md:pt-16 custom-scrollbar">
                 {/* Notification Bell */}
                 <div className="fixed top-4 right-6 z-40">
                     <NotificationBell />

@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Flame, ChevronLeft, ChevronRight, X, Trash2, Trophy, AlertTriangle, Check, ChevronDown, Circle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import DatePicker from '../../shared/components/DatePicker';
+import HabitStatCard from '../../shared/components/HabitStatCard';
+import PageHeader from '../../shared/components/PageHeader';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { getHabits, saveHabits, createHabit, updateHabit as dbUpdateHabit, deleteHabit as dbDeleteHabit } from './services/habits';
@@ -79,6 +81,10 @@ export default function Fitness() {
 
     const [isEditMode, setIsEditMode] = useState(false);
     const [isUnifiedColor, setIsUnifiedColor] = useState(false);
+
+    // Slider horizontal de la cuadrícula de días
+    const gridScrollRef = useRef(null);
+    const scrollGrid = (delta) => gridScrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
     const [globalColor, setGlobalColor] = useState('#3b82f6'); // Azure blue default
 
     const tableNameColumnWidth = isEditMode ? 220 : 120;
@@ -119,8 +125,24 @@ export default function Fitness() {
         return Math.round((completed / totalApplicable) * 100);
     };
 
+    // Racha real = mayor cantidad de DÍAS CONSECUTIVOS completados en el mes
+    // (no el total de días). Un día sin completar corta la racha.
+    const getLongestStreak = (habit) => {
+        let longest = 0;
+        let run = 0;
+        monthDays.forEach(day => {
+            if (habit.history[formatDate(day)]) {
+                run++;
+                if (run > longest) longest = run;
+            } else {
+                run = 0;
+            }
+        });
+        return longest;
+    };
+
     // Stats
-    const currentStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak), 0) : 0;
+    const currentStreak = habits.length > 0 ? Math.max(...habits.map(getLongestStreak), 0) : 0;
     const bestHabit = habits.length > 0 ? habits.reduce((prev, current) => (getCompletionRate(prev) > getCompletionRate(current)) ? prev : current, habits[0]) : null;
     const worstHabit = habits.length > 0 ? habits.reduce((prev, current) => (getCompletionRate(prev) < getCompletionRate(current)) ? prev : current, habits[0]) : null;
     const bestCompletion = bestHabit ? getCompletionRate(bestHabit) : 0;
@@ -378,11 +400,11 @@ export default function Fitness() {
                 </style>
 
                 {/* Contenedor principal de la gráfica */}
-                <div className="w-full relative z-10 h-[300px]">
+                <div className="w-full relative z-10 h-[200px]">
                     <div className="custom-chart-overflow" style={{ width: chartWidth, height: '100%', minWidth: 'max-content' }}>
                         <LineChart
                             width={chartWidth}
-                            height={300}
+                            height={200}
                             data={chartData}
                             margin={{ top: 10, right: chartMarginRight, left: chartMarginLeft, bottom: 0 }}
                             style={{ overflow: 'visible' }}
@@ -489,76 +511,29 @@ export default function Fitness() {
     };
 
     return (
-        <div className="space-y-8 animate-fade-in pb-20">
-            {/* Header & Badge row */}
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 relative z-10">
-                <div>
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Hábitos de Ejercicio</h2>
-                </div>
+        <div className="space-y-8 animate-fade-in pb-20 min-w-0">
+            {/* Header con selector de mes alineado (consistente con las otras páginas) */}
+            <PageHeader
+                title="Mis Hábitos"
+                subtitle="Construye tus rachas, día a día."
+                right={<DatePicker selectedDate={currentDate} onChange={setCurrentDate} monthOnly={true} />}
+            />
 
-            </div>
-
-            {/* Overview Cards (Mejor Racha, Habito Top, Menor racha) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
-                <div className="glass-card glass-card-hover-blue p-6 flex items-center justify-between border border-white/5 bg-[#050505]/40 backdrop-blur-xl transition-colors relative overflow-hidden group">
-                    {/* Subtle Gradient Glow */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-transparent to-transparent opacity-100 pointer-events-none" />
-
-                    <div className="relative z-10 font-[11px] min-w-0 flex-1 pr-4">
-                        <p className="text-text-muted text-[11px] uppercase tracking-wider font-bold leading-none">Mejor Racha</p>
-                        <div className="flex items-baseline gap-2 w-full mt-[6px]">
-                            <span className="text-[32px] font-bold text-blue-500 tracking-tighter leading-none shrink-0">{currentStreak}</span>
-                            <span className="text-[32px] font-bold text-white tracking-tighter leading-none truncate">{currentStreak === 1 ? 'Día' : 'Días'}</span>
-                        </div>
-                    </div>
-                    <div className="p-4 bg-blue-500/10 rounded-2xl text-blue-500 relative z-10 group-hover:scale-110 transition-transform duration-500">
-                        <Flame size={28} />
-                    </div>
-                </div>
-                <div className="glass-card glass-card-hover-green p-6 flex items-center justify-between border border-white/5 bg-[#050505]/40 backdrop-blur-xl transition-colors relative overflow-hidden group">
-                    {/* Subtle Gradient Glow */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-acid/20 via-transparent to-transparent opacity-100 pointer-events-none" />
-
-                    <div className="relative z-10 min-w-0 flex-1 pr-4">
-                        <p className="text-text-muted text-[11px] uppercase tracking-wider font-bold truncate leading-none">Hábito Top</p>
-                        <div className="flex items-baseline gap-2 w-full mt-[6px]">
-                            <span className="text-[32px] font-bold text-acid tracking-tighter leading-none shrink-0">{bestCompletion}%</span>
-                            <span className="text-[32px] font-bold text-white tracking-tighter leading-none truncate">{bestHabit?.name || '---'}</span>
-                        </div>
-                    </div>
-                    <div className="p-4 bg-acid/10 rounded-2xl text-acid relative z-10 group-hover:scale-110 transition-transform duration-500">
-                        <Trophy size={28} />
-                    </div>
-                </div>
-                <div className="glass-card glass-card-hover-red p-6 flex items-center justify-between border border-white/5 bg-[#050505]/40 backdrop-blur-xl transition-colors relative overflow-hidden group">
-                    {/* Subtle Gradient Glow */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-transparent to-transparent opacity-100 pointer-events-none" />
-
-                    <div className="relative z-10 min-w-0 flex-1 pr-4">
-                        <p className="text-text-muted text-[11px] uppercase tracking-wider font-bold truncate leading-none">Menor Racha</p>
-                        <div className="flex items-baseline gap-2 w-full mt-[6px]">
-                            <span className="text-[32px] font-bold text-red-500 tracking-tighter leading-none shrink-0">{worstCompletion}%</span>
-                            <span className="text-[32px] font-bold text-white tracking-tighter leading-none truncate">{worstHabit?.name || '---'}</span>
-                        </div>
-                    </div>
-                    <div className="p-4 bg-red-500/10 rounded-2xl text-red-500 relative z-10 group-hover:scale-110 transition-transform duration-500">
-                        <AlertTriangle size={28} />
-                    </div>
-                </div>
+            {/* Overview Cards (reutilizables) — 1 columna en angosto, 3 en fila en ancho */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 relative z-10">
+                <HabitStatCard label="Mejor Racha" value={currentStreak} suffix={currentStreak === 1 ? 'Día' : 'Días'} color="blue" icon={Flame} />
+                <HabitStatCard label="Hábito Top" value={`${bestCompletion}%`} suffix={bestHabit?.name || '---'} color="green" icon={Trophy} />
+                <HabitStatCard label="Menor Racha" value={`${worstCompletion}%`} suffix={worstHabit?.name || '---'} color="red" icon={AlertTriangle} />
             </div>
 
             {/* Month Tracker Section */}
-            <div className="space-y-6">
+            <div className="space-y-6 min-w-0">
 
-                {/* Navigator Header */}
-                <div className="flex justify-between items-center px-2">
-                    <div className="flex items-center gap-6 text-white">
-                        <DatePicker selectedDate={currentDate} onChange={setCurrentDate} monthOnly={true} />
-                    </div>
-
-                    <div className="flex gap-4 items-center">
+                {/* Controles: Editar Hábitos (izq) + Slider del mes (der), alineados horizontalmente */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+                    <div className="flex flex-wrap gap-3 items-center">
                         {isEditMode && (
-                            <div className="flex items-center gap-3 mr-2 bg-black/20 px-4 py-1.5 rounded-xl border border-white/5">
+                            <div className="flex items-center gap-3 bg-black/20 px-4 py-1.5 rounded-xl border border-white/5">
                                 <span className="text-[10px] font-bold text-white/50 tracking-widest uppercase">Unificar Color</span>
                                 <button
                                     onClick={() => setIsUnifiedColor(!isUnifiedColor)}
@@ -578,17 +553,27 @@ export default function Fitness() {
                                 )}
                             </div>
                         )}
-                        <button
-                            onClick={() => setIsEditMode(!isEditMode)}
-                            className="btn-primary"
-                        >
+                        <button onClick={() => setIsEditMode(!isEditMode)} className="btn-primary">
                             {isEditMode ? 'GUARDAR HÁBITOS' : 'EDITAR HÁBITOS'}
                         </button>
                     </div>
+
+                    {/* Slider del mes (flechas funcionales) */}
+                    {habits.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-text-muted/60 text-[11px] font-semibold tracking-wide mr-1">Desliza para ver todo el mes</span>
+                            <button onClick={() => scrollGrid(-260)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-colors" title="Días anteriores">
+                                <ChevronLeft size={15} />
+                            </button>
+                            <button onClick={() => scrollGrid(260)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-colors" title="Días siguientes">
+                                <ChevronRight size={15} />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Monthly Grid Table */}
-                <div className="overflow-x-auto pb-2 custom-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                <div ref={gridScrollRef} className="overflow-x-auto pb-2 custom-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
                     {habits.length === 0 ? (
                         <div className="min-w-full mx-auto pt-2">
                             <div className="glass-card border border-white/10 bg-[#101118]/80 p-10 text-center max-w-3xl mx-auto">
@@ -698,13 +683,13 @@ export default function Fitness() {
                                                         key={dateStr}
                                                         onClick={() => toggleHabit(habit.id, dateStr, day, habit.frequency)}
                                                         className={`w-7 h-7 rounded-[7px] transition-all flex items-center justify-center shrink-0
-                                                        ${!isEditMode && !isDone && 'hover:border-white/30 hover:bg-white/[0.04]'}
+                                                        ${!isEditMode && !isDone && (isDark ? 'hover:border-white/30 hover:bg-white/[0.04]' : 'hover:border-black/40 hover:bg-black/[0.04]')}
                                                         ${isEditMode && 'cursor-default opacity-50'}
                                                     `}
                                                         style={{
-                                                            backgroundColor: 'transparent',
+                                                            backgroundColor: isDone ? 'transparent' : (isDark ? 'transparent' : 'rgba(0,0,0,0.02)'),
                                                             backgroundImage: isDone ? `linear-gradient(to top, ${activeColor}dd 0%, ${activeColor}22 100%)` : 'none',
-                                                            border: isDone ? `1px solid ${activeColor}` : '1px solid rgba(255,255,255,0.06)',
+                                                            border: isDone ? `1px solid ${activeColor}` : (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.18)'),
                                                             boxShadow: isDone ? `0 0 10px ${activeColor}40, inset 0 0 5px ${activeColor}30` : 'none',
                                                         }}
                                                     />

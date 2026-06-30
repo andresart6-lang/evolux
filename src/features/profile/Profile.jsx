@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Settings, Bell, Palette, Pencil, X, Check, Ban } from 'lucide-react';
+import { User, Settings, Bell, Palette, Pencil, X, Check, Ban, Plus } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { useTheme } from '../../context/ThemeContext';
 import ColorPicker from '../../shared/components/ColorPicker';
@@ -24,6 +24,52 @@ export default function Profile() {
     const handleNameChange = (e) => {
         setNameInput(e.target.value);
         updateName(e.target.value);
+    };
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 256;
+                const MAX_HEIGHT = 256;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                
+                // Enable high-quality image scaling
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Use PNG for lossless quality and transparency support
+                const dataUrl = canvas.toDataURL('image/png');
+                updateAvatar(dataUrl);
+                setIsEditingAvatar(false);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
     };
 
     return (
@@ -84,7 +130,7 @@ export default function Profile() {
                                 <button onClick={() => setIsEditingAvatar(false)} className="text-text-muted hover:text-white"><X size={24} /></button>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="grid grid-cols-3 gap-4 mb-4">
                                 {/* Option: No Image (Ban Icon) */}
                                 <button
                                     onClick={() => { updateAvatar(null); setIsEditingAvatar(false); }}
@@ -111,8 +157,20 @@ export default function Profile() {
                                 ))}
                             </div>
 
-                            <p className="text-xs text-center text-text-muted">
-                                Coloca tus imágenes en <code className="bg-white/10 px-1 rounded">public/assets/avatars/</code>
+                            <div className="mb-6">
+                                <label className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/15 text-text-muted hover:text-white hover:border-white/30 hover:bg-white/[0.03] cursor-pointer transition-colors text-sm font-semibold">
+                                    <Plus size={16} /> Subir foto personalizada
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleFileUpload}
+                                    />
+                                </label>
+                            </div>
+
+                            <p className="text-xs text-center text-text-muted font-mono opacity-65">
+                                Avatares rápidos o tu propia foto.
                             </p>
                         </motion.div>
                     </motion.div>
