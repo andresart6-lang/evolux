@@ -40,7 +40,7 @@ export default function Auth() {
       <div className={`glass-card p-8 rounded-2xl w-full max-w-md mx-4 ${isDark ? 'bg-[#18181b]' : 'bg-white/70'}`}>
         <div className="text-center mb-8">
           <h1 className={`text-3xl font-bold font-display mb-2 ${isDark ? 'text-white' : 'text-[#1a1a2e]'}`}>
-            PP-Source
+            Evolux
           </h1>
           <p className={`${isDark ? 'text-white/60' : 'text-[#6b7280]'}`}>
             {isLogin ? 'Welcome back' : 'Create your account'}
