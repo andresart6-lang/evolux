@@ -8,11 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Placeholder avatars - User should add images to public/assets/avatars/
 const AVAILABLE_AVATARS = [
     '/assets/avatars/avatar1.png',
-    '/assets/avatars/avatar2.png',
-    '/assets/avatars/avatar3.png',
-    '/assets/avatars/avatar4.png',
-    '/assets/avatars/avatar5.png',
-    '/assets/avatars/avatar6.png',
+    '/assets/avatars/avatar2.jpg',
+    '/assets/avatars/avatar3.jpg',
+    '/assets/avatars/avatar4.jpg',
+    '/assets/avatars/avatar5.jpg',
 ];
 
 export default function Profile() {
@@ -115,14 +114,14 @@ export default function Profile() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
                         onClick={() => setIsEditingAvatar(false)}
                     >
                         <motion.div
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.9, y: 20 }}
-                            className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl glass-card"
+                            className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
                             onClick={e => e.stopPropagation()}
                         >
                             <div className="flex justify-between items-center mb-4">
@@ -130,27 +129,14 @@ export default function Profile() {
                                 <button onClick={() => setIsEditingAvatar(false)} className="text-text-muted hover:text-white"><X size={24} /></button>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4 mb-4">
-                                {/* Option: No Image (Ban Icon) */}
-                                <button
-                                    onClick={() => { updateAvatar(null); setIsEditingAvatar(false); }}
-                                    className={`aspect-square rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-text-muted hover:text-red-500 hover:border-red-500 hover:bg-red-500/10 transition-all group ${!user.avatar ? 'ring-4 ring-white border-transparent' : ''}`}
-                                    title="Sin imagen (Usar inicial)"
-                                >
-                                    <Ban size={32} className="transition-transform group-hover:scale-110" />
-                                </button>
-
-                                {/* Placeholder Image Options */}
-                                {/* In a real app, we would map over scanned files. For now, showing placeholders. */}
+                             <div className="grid grid-cols-5 gap-4 mb-4">
                                 {AVAILABLE_AVATARS.map((src, index) => (
                                     <button
                                         key={index}
                                         onClick={() => { updateAvatar(src); setIsEditingAvatar(false); }}
                                         className={`aspect-square rounded-full bg-white/5 overflow-hidden hover:scale-105 transition-transform relative ${user.avatar === src ? 'ring-4 ring-acid' : ''}`}
                                     >
-                                        <div className="w-full h-full flex items-center justify-center text-xs text-text-muted bg-neutral-800">
-                                            {/* Placeholder UI if image fails */}
-                                            IMG {index + 1}
+                                        <div className="w-full h-full flex items-center justify-center bg-neutral-800">
                                             <img src={src} alt={`Avatar ${index}`} className="absolute inset-0 w-full h-full object-cover opacity-100" onError={(e) => e.target.style.display = 'none'} />
                                         </div>
                                     </button>
