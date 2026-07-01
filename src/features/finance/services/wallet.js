@@ -2,6 +2,7 @@
 // Cada item: { id, user_id, month_key, column_type: 'actual'|'pending'|'debt', name, value, sort_order }
 // RLS: cada usuario solo ve/edita lo suyo (auth.uid() = user_id).
 import { supabase } from '../../../shared/services/supabase';
+import { transformSensitiveFields } from '../../../shared/lib/crypto';
 
 const handleError = (error) => {
     console.error('Wallet DB error:', error);
@@ -21,8 +22,9 @@ export async function getWalletMonth(userId, monthKey) {
         .order('created_at', { ascending: true });
     if (error) handleError(error);
 
+    const decryptedRows = await Promise.all((data || []).map((row) => transformSensitiveFields(row, 'wallet_items', 'decrypt')));
     const grouped = emptyMonth();
-    (data || []).forEach((r) => {
+    decryptedRows.forEach((r) => {
         if (grouped[r.column_type]) {
             grouped[r.column_type].push({ id: r.id, name: r.name || '', value: Number(r.value) || 0 });
         }
@@ -32,20 +34,32 @@ export async function getWalletMonth(userId, monthKey) {
 
 // Crea un item vacío en una columna y devuelve la fila creada.
 export async function addWalletItem(userId, monthKey, columnType, sortOrder = 0) {
+    const encryptedItem = await transformSensitiveFields({
+        user_id: userId,
+        month_key: monthKey,
+        column_type: columnType,
+        name: '',
+        value: 0,
+        sort_order: sortOrder,
+    }, 'wallet_items', 'encrypt');
+
     const { data, error } = await supabase
         .from('wallet_items')
-        .insert([{ user_id: userId, month_key: monthKey, column_type: columnType, name: '', value: 0, sort_order: sortOrder }])
+        .insert([encryptedItem])
         .select()
         .single();
     if (error) handleError(error);
-    return { id: data.id, name: data.name || '', value: Number(data.value) || 0 };
+
+    const decryptedData = data ? await transformSensitiveFields(data, 'wallet_items', 'decrypt') : data;
+    return { id: decryptedData.id, name: decryptedData.name || '', value: Number(decryptedData.value) || 0 };
 }
 
 // Actualiza nombre/valor de un item.
 export async function updateWalletItem(id, userId, fields) {
+    const encryptedFields = await transformSensitiveFields(fields, 'wallet_items', 'encrypt');
     const { error } = await supabase
         .from('wallet_items')
-        .update(fields)
+        .update(encryptedFields)
         .eq('id', id)
         .eq('user_id', userId);
     if (error) handleError(error);
