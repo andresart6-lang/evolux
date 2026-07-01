@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL || import.meta.env.vite_apps_script_url;
 
 export async function request(endpoint, data = null) {
   const payload = {
